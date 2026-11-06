@@ -19,6 +19,7 @@ x86/
 [Aa][Rr][Mm]64/
 bld/
 [Bb]in/
+!/src-tauri/src/bin/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
@@ -55,3 +56,17 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Rust / Tauri / Svelte
+/target/
+/src-tauri/target/
+/src-tauri/gen/
+/node_modules/
+/dist/
+/.test-data/
+*.local
+
+# The icon generator also produces unused mobile/store variants.
+/src-tauri/icons/*
+!/src-tauri/icons/icon.ico
+!/src-tauri/icons/icon.png

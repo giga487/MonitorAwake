@@ -1,0 +1,9 @@
+# Gallina con viso a schermo
+
+Asset: `public/mascot.png`, PNG trasparente generato con il tool integrato imagegen il 6 novembre 2026. Gallina in pixel art con cresta rossa, ali, zampe e viso su un display verde fosforo, scelta dall'utente al posto del terminale robot. Le icone desktop vengono ricavate con `npm run tauri -- icon public/mascot.png --output src-tauri/icons`.
+
+La mascotte usa ancora le animazioni CSS di movimento e avviso; questa immagine non è un foglio di fotogrammi.
+
+## Prompt utilizzato
+
+Use case: stylized-concept. Asset type: one production desktop companion mascot sprite on transparent background. Primary request: a nerdy CHICKEN with a SCREEN FACE. Design a clearly recognizable small round hen robot: ivory/off-white rounded chicken body, red comb on top of the head, tiny red wattles just below the face panel, two feather-shaped little wings, a small fan of tail feathers, two short yellow-orange chicken legs with three-toed feet. The FACE ITSELF is a dark rounded rectangular CRT screen inset into the chicken's head, showing two expressive bright phosphor-green pixel eyes and a tiny pixel beak/mouth. The screen replaces the whole organic face; do not put a human face there. The character should read first as a chicken and second as a retro computer companion, not as a monitor with generic arms. Charming, alert, mildly mischievous nerd personality. Crisp 16-bit pixel art with coherent chunky pixel clusters and a dark outline; restrained retro palette, gentle pixel shading, no smooth vector illustration, no glossy 3D render. Front-facing with slight three-quarter body orientation, symmetrical readable screen face. Entire single character visible from comb to toes, centered square composition, about 85 percent of canvas, clear padding. Must be legible as a desktop pet at 120px high. Truly transparent alpha background. No scene, no ground plane, no cast shadow, no checkerboard, no words, no logo, no extra characters or props.

@@ -1,0 +1,152 @@
+html.desktop,
+html.desktop body {
+  background: transparent !important;
+  overflow: hidden;
+  color-scheme: light;
+}
+html.desktop #app {
+  height: 100vh;
+}
+.widget {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 15px 14px;
+  user-select: none;
+}
+.widget-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 7px;
+  color: #6d7b63;
+}
+.widget-top > span {
+  font-size: 8px;
+  letter-spacing: 1.8px;
+  font-weight: 650;
+}
+.widget-top .icon-button {
+  background: #f7f8f1dd;
+  margin-left: 3px;
+}
+.speech {
+  width: 235px;
+  max-height: 86px;
+  overflow: auto;
+  background: #fffffff5;
+  border: 1px solid #e1e6d8;
+  box-shadow: 0 3px 14px #38462c0a;
+  border-radius: 15px;
+  padding: 13px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #76806c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 9px;
+}
+.speech strong {
+  color: #526644;
+  font-weight: 550;
+}
+.speech .widget-countdown {
+  font-size: 23px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  letter-spacing: 0.7px;
+}
+.speech .text-button {
+  margin-top: 4px;
+}
+.mascot-drag {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  height: 146px;
+  cursor: grab;
+  flex-shrink: 1;
+  min-height: 85px;
+  width: 150px;
+}
+.mascot-drag:active {
+  cursor: grabbing;
+}
+.mascot-drag .mascot {
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 4px #1f33111a);
+}
+.mascot.celebrate {
+  animation: celebrate 1s ease-in-out infinite;
+}
+@keyframes celebrate {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg) translateY(-5px);
+  }
+}
+.widget-controls {
+  width: 100%;
+  border: 1px solid #e0e6d6;
+  background: #fffffff7;
+  border-radius: 15px;
+  padding: 4px 8px;
+  box-shadow: 0 5px 18px #28382012;
+}
+.widget .command-form.compact {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid #eef0e8;
+  gap: 1px;
+}
+.widget .command-form input {
+  font-size: 11px;
+  padding: 9px 5px;
+}
+.widget-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+.awake-button {
+  gap: 7px;
+  margin-right: auto;
+}
+.url-button {
+  font-size: 9px;
+  padding: 6px;
+}
+.widget-error {
+  font-size: 10px;
+  line-height: 1.4;
+  color: #945e37;
+  background: #fff4e8;
+  border: 1px solid #edd3b9;
+  border-radius: 7px;
+  padding: 5px 7px;
+  margin-top: 5px;
+  max-height: 43px;
+  overflow: auto;
+  width: 100%;
+  user-select: text;
+}
+.widget input.url-field {
+  width: 100%;
+  font-size: 9px;
+  padding: 5px;
+  border-radius: 6px;
+  margin-top: 5px;
+  user-select: text;
+}
