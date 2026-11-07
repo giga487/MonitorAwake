@@ -7,6 +7,7 @@ import {
   notificationEggs,
   idleActionPlan,
   selectRecurringPhrase,
+  mascots,
 } from '../src/lib/mascot.ts';
 
 test('popup stays on screen without changing the mascot anchor', () => {
@@ -158,6 +159,25 @@ test('speech is a third optional action and does not immediately repeat phrases'
   assert.equal(
     selectRecurringPhrase(['', '   ', 'B'], null, () => 0),
     'B',
+  );
+});
+
+test('mascot catalog provides all sprite atlases with the intended rendering', () => {
+  assert.deepEqual(
+    mascots.map((mascot) => mascot.id),
+    ['chicken', 'frost_gryphon', 'ember_wyvern'],
+  );
+  assert.equal(
+    mascots.find((mascot) => mascot.id === 'ember_wyvern').rendering,
+    'auto',
+  );
+  assert.equal(
+    mascots.find((mascot) => mascot.id === 'frost_gryphon').rendering,
+    'auto',
+  );
+  assert.equal(
+    mascots.find((mascot) => mascot.id === 'chicken').rendering,
+    'pixelated',
   );
 });
 

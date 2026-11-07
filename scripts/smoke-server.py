@@ -85,7 +85,7 @@ def main():
     (profile / 'state.json').write_bytes(legacy)
     process, base, token = start(binary, profile)
     try:
-        assert request(base, token)[1]['schema_version'] == 2
+        assert request(base, token)[1]['schema_version'] == 4
         backups = list(profile.glob('state.json.backup-v1-*.json'))
         assert len(backups) == 1 and backups[0].read_bytes() == legacy
         assert request(base, '', '/')[0] == 200

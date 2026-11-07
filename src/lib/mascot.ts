@@ -1,6 +1,6 @@
 import type { Timer } from './api';
 
-export type MascotKind = 'chicken';
+export type MascotKind = 'chicken' | 'frost_gryphon' | 'ember_wyvern';
 export type IdleAction = 'peck' | 'flutter' | 'speak';
 export type MascotState =
   | 'waiting'
@@ -13,14 +13,32 @@ export const mascots: {
   id: MascotKind;
   name: string;
   atlas: string;
+  rendering: 'pixelated' | 'auto';
   description: string;
 }[] = [
   {
     id: 'chicken',
     name: 'Chicken',
     atlas: '/chicken-actions.png',
+    rendering: 'pixelated',
     description:
       'A curious little hen. Pecks, flutters and keeps your notifications warm.',
+  },
+  {
+    id: 'frost_gryphon',
+    name: 'Frost gryphon',
+    atlas: '/frost-gryphon-actions.png',
+    rendering: 'auto',
+    description:
+      'A little guardian from snowy peaks. Curious, brave and always watching over your reminders.',
+  },
+  {
+    id: 'ember_wyvern',
+    name: 'Ember wyvern',
+    atlas: '/ember-wyvern-actions.png',
+    rendering: 'auto',
+    description:
+      'A spirited little wind rider with crimson wings, iron details and a warm heart. Your reminders are under its protection.',
   },
 ];
 

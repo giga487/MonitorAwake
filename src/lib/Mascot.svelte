@@ -119,10 +119,11 @@
       >{quote}</span
     >{/if}
   <span
-    class="chicken-sprite"
+    class="mascot-sprite"
     class:ready={activity === 'notification-ready'}
     data-pose={pose}
     style:background-image={`url('${character.atlas}')`}
+    style:image-rendering={character.rendering}
     role="img"
     aria-label={`${character.name}: ${stateLabel}`}
   >
@@ -195,7 +196,7 @@
     font-size: 12px;
     line-height: 1.6;
   }
-  .chicken-sprite[data-pose='speak'] {
+  .mascot-sprite[data-pose='speak'] {
     background-position: 0 0;
     animation: talking 1.5s ease-in-out infinite;
   }
@@ -215,7 +216,7 @@
     height: 146px;
     pointer-events: none;
   }
-  .chicken-sprite {
+  .mascot-sprite {
     position: absolute;
     inset: 0;
     display: block;
@@ -226,19 +227,19 @@
     transform-origin: 50% 90%;
     animation: look-around 8s steps(1, end) infinite;
   }
-  .chicken-sprite[data-pose='brood'] {
+  .mascot-sprite[data-pose='brood'] {
     background-position: 100% 100%;
     animation: brooding 5s ease-in-out infinite;
   }
-  .chicken-sprite[data-pose='peck'] {
+  .mascot-sprite[data-pose='peck'] {
     background-position: 100% 0;
     animation: pecking 1.8s steps(1, end) 1;
   }
-  .chicken-sprite[data-pose='flutter'] {
+  .mascot-sprite[data-pose='flutter'] {
     background-position: 0 100%;
     animation: fluttering 1.4s steps(1, end) 1;
   }
-  .chicken-sprite.ready {
+  .mascot-sprite.ready {
     animation: ready 1.5s ease-in-out infinite;
   }
   .egg-nest {
@@ -321,7 +322,7 @@
     white-space: nowrap;
   }
   .motionless *,
-  .motionless .chicken-sprite {
+  .motionless .mascot-sprite {
     animation: none;
   }
   @keyframes look-around {

@@ -12,7 +12,7 @@ export interface Timer {
 export interface Settings {
   animations: boolean;
   notifications: boolean;
-  mascot: 'chicken';
+  mascot: 'chicken' | 'frost_gryphon' | 'ember_wyvern';
   phrases: string[];
   speech_enabled: boolean;
 }

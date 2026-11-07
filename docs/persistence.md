@@ -4,9 +4,9 @@ Requisito concordato: tutti i dati persistenti devono appartenere a uno schema v
 
 ## Stato attuale
 
-`state.json` contiene una versione globale `schema_version: 2`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
+`state.json` contiene una versione globale `schema_version: 4`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
 
-`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente e la migrazione v1 -> v2: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v1-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v2 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
+`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente, la catena v1 -> v2 -> v3 -> v4 e i passaggi dai formati 2 e 3: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v<versione-originale>-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v4 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
 
 Il campo opzionale `settings.mascot` usa un default Serde per leggere i file precedenti come `chicken`. Anche le preferenze delle frasi hanno default espliciti. La revisione del testo di ogni nota (`content_revision`) impedisce a un editor obsoleto di sovrascrivere modifiche nuove; non e una versione dello schema. Colore, geometria e visibilita non incrementano la revisione del testo.
 
@@ -39,3 +39,11 @@ L'identita dell'app rimane neutra: la gallina e un valore della preferenza masco
 Conservare fixture dei formati distribuiti e verificare migrazione, riapertura del file migrato, conservazione di testo e identificatori, impostazioni opzionali, riferimenti tra note e timer, file corrotti, versioni future, backup e fallimenti di scrittura. Ripetere il caricamento dopo una migrazione riuscita non deve duplicare note o promemoria. Verificare che un errore lasci intatto il file originale.
 
 Backup, migrazione v1 -> v2, protezione dei formati futuri e conflitti di modifica sono implementati e coperti dai test Rust e HTTP. Le migrazioni successive richiederanno nuovi passi espliciti e fixture del formato precedente.
+
+## Schema 3: catalogo delle mascotte
+
+Lo schema 3 ammette `settings.mascot = frost_gryphon` oltre a `chicken`. Il passo esplicito v2 -> v3 conserva note, timer, frasi personali e preferenze; non cambia la mascotte selezionata. Il passaggio v1 -> v2 resta separato e viene seguito dal nuovo passo. Le versioni precedenti non riconoscono il nuovo valore e non devono riscrivere il file. Il backup esatto permette il recupero del formato precedente.
+
+## Schema 4: Ember wyvern
+
+Aggiunge il valore `ember_wyvern` al catalogo. Il passo v3 -> v4 conserva selezione, note, timer e frasi. Anche questo ampliamento del dominio enum richiede una versione esplicita per impedire riscritture da applicazioni precedenti.

@@ -2,7 +2,7 @@ use crate::notes::{Note, NoteBounds, NoteColor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 4;
 
 pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
@@ -84,6 +84,8 @@ impl Settings {
 pub enum MascotKind {
     #[default]
     Chicken,
+    FrostGryphon,
+    EmberWyvern,
 }
 
 impl Default for Settings {

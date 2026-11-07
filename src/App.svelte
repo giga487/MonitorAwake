@@ -12,6 +12,7 @@
   import Mascot from './lib/Mascot.svelte';
   import NoteEditor from './lib/NoteEditor.svelte';
   import NotesPanel from './lib/NotesPanel.svelte';
+  import TimersPanel from './lib/TimersPanel.svelte';
   import PhraseSettings from './lib/PhraseSettings.svelte';
   import SpeechBubble from './lib/SpeechBubble.svelte';
   import { mascots, type MascotKind } from './lib/mascot';
@@ -58,7 +59,11 @@
   const currentNote = $derived(
     snapshot?.notes.find((note) => note.id === noteId),
   );
-  let panelSection = $state<'home' | 'notes'>('home');
+  let panelSection = $state<'home' | 'notes' | 'timers'>('home');
+  const selectedMascotName = $derived(
+    mascots.find((mascot) => mascot.id === snapshot?.settings.mascot)?.name ??
+      'Chicken',
+  );
   let changingMenu = false;
 
   async function showPhrase(text: string | null) {
@@ -505,6 +510,11 @@
           <button class="text-button" onclick={() => (panelSection = 'home')}
             >Back to menu</button
           >
+        {:else if panelSection === 'timers' && snapshot}
+          <TimersPanel {snapshot} {now} onstate={accept} />
+          <button class="text-button" onclick={() => (panelSection = 'home')}
+            >Back to menu</button
+          >
         {:else}
           <div class="widget-controls">
             {#if notificationStep === 'menu'}
@@ -525,6 +535,13 @@
                   name="arrow"
                   size={16}
                 /></button
+              >
+              <button
+                class="menu-item"
+                onclick={() => (panelSection = 'timers')}
+                ><Icon name="timer" size={18} /><span>My timers</span><span
+                  >{snapshot?.timers.length ?? 0}</span
+                ></button
               >
               <details class="advanced-command">
                 <summary>Text command</summary>
@@ -633,7 +650,7 @@
     {#if !isPanel}
       <button
         class="mascot-drag"
-        aria-label={`Chicken: ${running.length} pending notifications, ${expired.length} ready. Drag to move, right-click or press Enter for commands.`}
+        aria-label={`${selectedMascotName}: ${running.length} pending notifications, ${expired.length} ready. Drag to move, right-click or press Enter for commands.`}
         aria-haspopup="dialog"
         title="Drag to move · Right-click for commands and timers"
         onpointerdown={drag}
@@ -966,7 +983,7 @@
                     mascot.id === (snapshot?.settings.mascot ?? 'chicken'),
                 )?.description}
               </p>
-              <small>Chicken is the first available mascot.</small>
+              <small>Choose a companion for your desktop.</small>
             </div>
           </div>
           <dl class="mascot-states">
