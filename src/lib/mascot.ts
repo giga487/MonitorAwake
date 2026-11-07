@@ -27,16 +27,16 @@ export const mascots: {
   {
     id: 'frost_gryphon',
     name: 'Frost gryphon',
-    atlas: '/frost-gryphon-actions.png',
-    rendering: 'auto',
+    atlas: '/frost-gryphon-pixel-actions.png',
+    rendering: 'pixelated',
     description:
       'A little guardian from snowy peaks. Curious, brave and always watching over your reminders.',
   },
   {
     id: 'ember_wyvern',
     name: 'Ember wyvern',
-    atlas: '/ember-wyvern-actions.png',
-    rendering: 'auto',
+    atlas: '/ember-wyvern-pixel-actions.png',
+    rendering: 'pixelated',
     description:
       'A spirited little wind rider with crimson wings, iron details and a warm heart. Your reminders are under its protection.',
   },
@@ -106,23 +106,22 @@ export function selectRecurringPhrase(
     : null;
 }
 
-export function idleActionPlan(
-  random: () => number = Math.random,
-  speech = false,
-) {
+export function idleActionPlan(random: () => number = Math.random) {
   const roll = random();
-  const action: IdleAction = speech
-    ? roll < 1 / 3
-      ? 'peck'
-      : roll < 2 / 3
-        ? 'flutter'
-        : 'speak'
-    : roll < 0.5
-      ? 'peck'
-      : 'flutter';
+  const action: IdleAction = roll < 0.5 ? 'peck' : 'flutter';
   return {
     action,
     delay: 10_000 + Math.floor(random() * 15_000),
-    duration: action === 'peck' ? 1800 : action === 'flutter' ? 1400 : 6000,
+    duration: action === 'peck' ? 1800 : 1400,
   };
+}
+
+export function speechDelay(
+  minMinutes = 5,
+  maxMinutes = 10,
+  random: () => number = Math.random,
+) {
+  return Math.round(
+    (minMinutes + random() * (maxMinutes - minMinutes)) * 60_000,
+  );
 }

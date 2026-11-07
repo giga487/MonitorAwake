@@ -85,7 +85,7 @@ def main():
     (profile / 'state.json').write_bytes(legacy)
     process, base, token = start(binary, profile)
     try:
-        assert request(base, token)[1]['schema_version'] == 4
+        assert request(base, token)[1]['schema_version'] == 5
         backups = list(profile.glob('state.json.backup-v1-*.json'))
         assert len(backups) == 1 and backups[0].read_bytes() == legacy
         assert request(base, '', '/')[0] == 200
@@ -113,7 +113,11 @@ def main():
         assert request(base, token, '/api/action', {'type': 'set_note_appearance', 'id': note_id, 'color': 'blue', 'pinned': True})[0] == 200
         assert request(base, token, '/api/action', {'type': 'set_note_reminder', 'id': note_id, 'seconds': 60})[0] == 200
         _, current = request(base, token)
-        settings = {**current['settings'], 'phrases': ['One small step at a time.'], 'speech_enabled': True}
+        assert current['settings']['speech_min_minutes'] == 5 and current['settings']['speech_max_minutes'] == 10
+        settings = {**current['settings'], 'phrases': ['One small step at a time.'], 'speech_enabled': True, 'speech_min_minutes': 2, 'speech_max_minutes': 4}
+        for minimum, maximum, expected in [(0, 10, 400), (10, 5, 400), (1, 1441, 400), (1.5, 10, 422)]:
+            invalid = {**settings, 'speech_min_minutes': minimum, 'speech_max_minutes': maximum}
+            assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': invalid})[0] == expected
         assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': settings})[0] == 200
         if expired['capabilities']['system']:
             assert request(base, token, '/api/action', {'type': 'set_awake', 'mode': 'system'})[0] == 200
@@ -137,6 +141,7 @@ def main():
         assert restored['notes'][0]['id'] == note_id and restored['notes'][0]['body'] == body
         assert restored['notes'][0]['visible'] is False and restored['notes'][0]['pinned'] is True
         assert restored['notes'][0]['color'] == 'blue' and restored['settings']['phrases'] == settings['phrases']
+        assert restored['settings']['speech_min_minutes'] == 2 and restored['settings']['speech_max_minutes'] == 4
         assert len(list(profile.glob('state.json.backup-v1-*.json'))) == 1
         linked_timer = restored['notes'][0]['reminder_id']
         assert request(base, next_token, '/api/action', {'type': 'delete_note', 'id': note_id})[0] == 200

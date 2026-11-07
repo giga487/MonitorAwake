@@ -2,7 +2,7 @@ use crate::notes::{Note, NoteBounds, NoteColor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
@@ -46,6 +46,16 @@ pub struct Settings {
     pub phrases: Vec<String>,
     #[serde(default = "enabled")]
     pub speech_enabled: bool,
+    #[serde(default = "default_speech_min_minutes")]
+    pub speech_min_minutes: u16,
+    #[serde(default = "default_speech_max_minutes")]
+    pub speech_max_minutes: u16,
+}
+fn default_speech_min_minutes() -> u16 {
+    5
+}
+fn default_speech_max_minutes() -> u16 {
+    10
 }
 fn enabled() -> bool {
     true
@@ -64,6 +74,12 @@ pub fn default_phrases() -> Vec<String> {
 }
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
+        if self.speech_min_minutes == 0
+            || self.speech_max_minutes > 1440
+            || self.speech_min_minutes > self.speech_max_minutes
+        {
+            return Err("Use a speech pause between 1 and 1440 minutes, with minimum no greater than maximum.".into());
+        }
         if self.phrases.len() > 50
             || self.phrases.iter().any(|text| {
                 text.trim().is_empty()
@@ -96,6 +112,8 @@ impl Default for Settings {
             mascot: MascotKind::Chicken,
             phrases: default_phrases(),
             speech_enabled: true,
+            speech_min_minutes: default_speech_min_minutes(),
+            speech_max_minutes: default_speech_max_minutes(),
         }
     }
 }

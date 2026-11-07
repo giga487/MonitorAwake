@@ -1,14 +1,16 @@
 # MonitorAwake
 
+[Scarica ultima release](https://github.com/giga487/MonitorAwake/releases/latest) · [Release e setup automatico](docs/releases.md)
+
 Un piccolo assistente desktop in Rust: mascotte Tauri, timer e configurazione HTTP locale in Svelte. Tutto funziona sul computer dell'utente, senza account o servizi cloud.
 
 L'interfaccia, i messaggi e le notifiche dell'app sono in inglese. Esempi: `timer tea 5 minutes`, `remind me in 30 minutes`, `how much time is left?`, `add 5 minutes to timer tea`, `cancel timer tea`. I comandi italiani restano compatibili; i nomi dei timer salvati non vengono tradotti.
 
 ## Prima versione
 
-Oltre a **Chicken** sono disponibili **Frost gryphon**, un grifone del gelo, ed **Ember wyvern**, una viverna dalle ali cremisi, entrambi con grafica fantasy dipinta. Dal menu **My timers** si accede direttamente a timer attivi, avvisi e storico.
+Oltre a **Chicken** sono disponibili **Frost gryphon**, un grifone del gelo, ed **Ember wyvern**, una viverna dalle ali cremisi, entrambi in pixel art nello stile di Chicken. Dal menu **My timers** si accede direttamente a timer attivi, avvisi e storico.
 
-Le **Desktop notes** si creano dal menu con **New note** e si ritrovano in **My notes**: testo e titolo, quattro colori, primo piano, ridimensionamento, salvataggio automatico e promemoria opzionali. Chiudere nasconde; cancellare richiede una conferma separata. Le frasi della vignetta si configurano in **Preferences > Recurring phrases**. L'icona dell'app e neutra e distinta dalla mascotte. Dettagli in [Note desktop e frasi ricorrenti](docs/notes.md).
+Le **Desktop notes** si creano dal menu con **New note** e si ritrovano in **My notes**: testo e titolo, quattro colori, primo piano, ridimensionamento, salvataggio automatico e promemoria opzionali. Chiudere nasconde; cancellare richiede una conferma separata. Le frasi della vignetta e le pause minime e massime si configurano in **Preferences > Recurring phrases** (predefinito: 5-10 minuti, anche durante la cova). L'icona dell'app e neutra e distinta dalla mascotte. Dettagli in [Note desktop e frasi ricorrenti](docs/notes.md).
 
 La mascotte si sceglie dal menu o dalle preferenze; sono disponibili **Chicken**, **Frost gryphon** ed **Ember wyvern**. La gallina guarda in alto durante l'attesa, ogni tanto becca o svolazza e cova quando ci sono notifiche in attesa. Ogni notifica ha un uovo: verde con piu del 50% del tempo rimanente, giallo fino al 20%, rosso nella fase finale. Dopo la scadenza l'uovo rimane incrinato fino alla conferma. Animazioni disattivabili; supporto a riduzione del movimento. Dettagli e provenienza degli asset in `docs/mascot.md`.
 
@@ -91,7 +93,7 @@ Stampa il link privato nel terminale e non apre browser. In questa modalità gli
 
 ## Dati e comportamento
 
-Il formato attuale usa `schema_version: 4` per l'intero archivio. Le migrazioni dalle versioni 1, 2 e 3 creano un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
+Il formato attuale usa `schema_version: 5` per l'intero archivio. Le migrazioni dalle versioni 1, 2, 3 e 4 creano un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
 
 - Windows: `%LOCALAPPDATA%\MonitorAwake\state.json`.
 - Linux: directory dati locale dell'utente (`$XDG_DATA_HOME/MonitorAwake`, normalmente `~/.local/share/MonitorAwake`).

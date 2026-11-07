@@ -6,6 +6,7 @@ import {
   mascotState,
   notificationEggs,
   idleActionPlan,
+  speechDelay,
   selectRecurringPhrase,
   mascots,
 } from '../src/lib/mascot.ts';
@@ -144,9 +145,37 @@ test('idle actions are bounded and include both pecking and fluttering', () => {
   );
 });
 
-test('speech is a third optional action and does not immediately repeat phrases', () => {
-  assert.equal(idleActionPlan(() => 0.99, true).action, 'speak');
-  assert.equal(idleActionPlan(() => 0.99, false).action, 'flutter');
+test('brooding keeps its pose and eggs while scheduling recurring speech', () => {
+  for (const roll of [0, 0.5, 0.999]) {
+    const delay = speechDelay(5, 10, () => roll);
+    assert.ok(delay >= 300_000 && delay <= 600_000);
+    const timers = [timer('a')];
+    assert.equal(mascotState(timers, 0, 'speak'), 'waiting-for-notification');
+    assert.equal(notificationEggs(timers, 0).length, 1);
+    assert.equal(mascotState(timers, 100_000, 'speak'), 'notification-ready');
+  }
+});
+
+test('speech pauses default to 5-10 minutes and support configured and fixed intervals', () => {
+  assert.equal(
+    speechDelay(undefined, undefined, () => 0),
+    300_000,
+  );
+  assert.equal(
+    speechDelay(5, 10, () => 1),
+    600_000,
+  );
+  assert.equal(
+    speechDelay(2, 4, () => 0.5),
+    180_000,
+  );
+  assert.equal(
+    speechDelay(7, 7, () => 0.9),
+    420_000,
+  );
+});
+
+test('recurring speech does not immediately repeat phrases', () => {
   assert.equal(selectRecurringPhrase([], null), null);
   assert.equal(
     selectRecurringPhrase(['A', 'B'], 'A', () => 0),
@@ -169,11 +198,11 @@ test('mascot catalog provides all sprite atlases with the intended rendering', (
   );
   assert.equal(
     mascots.find((mascot) => mascot.id === 'ember_wyvern').rendering,
-    'auto',
+    'pixelated',
   );
   assert.equal(
     mascots.find((mascot) => mascot.id === 'frost_gryphon').rendering,
-    'auto',
+    'pixelated',
   );
   assert.equal(
     mascots.find((mascot) => mascot.id === 'chicken').rendering,

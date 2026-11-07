@@ -666,6 +666,8 @@
           kind={snapshot?.settings.mascot ?? 'chicken'}
           phrases={snapshot?.settings.phrases ?? []}
           speechEnabled={snapshot?.settings.speech_enabled ?? false}
+          speechMinMinutes={snapshot?.settings.speech_min_minutes ?? 5}
+          speechMaxMinutes={snapshot?.settings.speech_max_minutes ?? 10}
           onSpeech={showPhrase}
         />
         {#if expired.length || error || connectionError || snapshot?.backend_error || snapshot?.desktop_error}

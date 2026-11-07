@@ -15,6 +15,8 @@ export interface Settings {
   mascot: 'chicken' | 'frost_gryphon' | 'ember_wyvern';
   phrases: string[];
   speech_enabled: boolean;
+  speech_min_minutes: number;
+  speech_max_minutes: number;
 }
 export type NoteColor = 'yellow' | 'sage' | 'blue' | 'rose';
 export interface NoteBounds {

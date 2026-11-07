@@ -7,6 +7,7 @@
     mascotState,
     notificationEggs,
     idleActionPlan,
+    speechDelay,
     selectRecurringPhrase,
     type MascotKind,
     type IdleAction,
@@ -19,6 +20,8 @@
     kind = 'chicken',
     phrases = [],
     speechEnabled = false,
+    speechMinMinutes = 5,
+    speechMaxMinutes = 10,
     onSpeech,
   }: {
     timers?: Timer[];
@@ -27,6 +30,8 @@
     kind?: MascotKind;
     phrases?: string[];
     speechEnabled?: boolean;
+    speechMinMinutes?: number;
+    speechMaxMinutes?: number;
     onSpeech?: (text: string | null) => void;
   } = $props();
   let action = $state<IdleAction | null>(null);
@@ -41,14 +46,24 @@
   );
   const eggs = $derived(notificationEggs(timers, now));
   const hasNotifications = $derived(eggs.length > 0);
+  const hasReadyNotifications = $derived(eggs.some((egg) => egg.due));
   const animate = $derived(animations && !reducedMotion);
-  const canPlay = $derived(mounted && visible && animate && !hasNotifications);
-  const activity = $derived(mascotState(timers, now, animate ? action : null));
+  const canPlay = $derived(
+    mounted && visible && animate && !hasNotifications && !quote,
+  );
+  const canSpeak = $derived(
+    mounted && visible && animate && allowSpeech && !hasReadyNotifications,
+  );
+  const activity = $derived(
+    mascotState(timers, now, animate ? (quote ? 'speak' : action) : null),
+  );
   const pose = $derived(
     activity === 'waiting-for-notification'
       ? 'brood'
       : activity === 'random-action'
-        ? action
+        ? quote
+          ? 'speak'
+          : action
         : 'waiting',
   );
   const stateLabel = $derived(
@@ -77,33 +92,53 @@
   });
 
   $effect(() => {
-    const speech = allowSpeech;
     if (!canPlay) {
       action = null;
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const plan = idleActionPlan();
+      timer = setTimeout(() => {
+        action = plan.action;
+        timer = setTimeout(() => {
+          action = null;
+          schedule();
+        }, plan.duration);
+      }, plan.delay);
+    };
+    schedule();
+    return () => {
+      clearTimeout(timer);
+    };
+  });
+
+  $effect(() => {
+    const min = speechMinMinutes;
+    const max = speechMaxMinutes;
+    if (!canSpeak) {
       quote = '';
       onSpeech?.(null);
       return;
     }
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
-      const plan = idleActionPlan(Math.random, speech);
-      timer = setTimeout(() => {
-        action = plan.action;
-        if (plan.action === 'speak') {
+      timer = setTimeout(
+        () => {
           const text = selectRecurringPhrase(phrases, previousQuote);
           if (text) {
             quote = text;
             previousQuote = text;
             onSpeech?.(text);
           }
-        }
-        timer = setTimeout(() => {
-          action = null;
-          quote = '';
-          onSpeech?.(null);
-          schedule();
-        }, plan.duration);
-      }, plan.delay);
+          timer = setTimeout(() => {
+            quote = '';
+            onSpeech?.(null);
+            schedule();
+          }, 6000);
+        },
+        speechDelay(min, max),
+      );
     };
     schedule();
     return () => {

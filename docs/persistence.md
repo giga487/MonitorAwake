@@ -4,9 +4,9 @@ Requisito concordato: tutti i dati persistenti devono appartenere a uno schema v
 
 ## Stato attuale
 
-`state.json` contiene una versione globale `schema_version: 4`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
+`state.json` contiene una versione globale `schema_version: 5`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
 
-`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente, la catena v1 -> v2 -> v3 -> v4 e i passaggi dai formati 2 e 3: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v<versione-originale>-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v4 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
+`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente, la catena v1 -> v2 -> v3 -> v4 -> v5 e i passaggi dai formati 2, 3 e 4: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v<versione-originale>-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v5 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
 
 Il campo opzionale `settings.mascot` usa un default Serde per leggere i file precedenti come `chicken`. Anche le preferenze delle frasi hanno default espliciti. La revisione del testo di ogni nota (`content_revision`) impedisce a un editor obsoleto di sovrascrivere modifiche nuove; non e una versione dello schema. Colore, geometria e visibilita non incrementano la revisione del testo.
 
@@ -47,3 +47,7 @@ Lo schema 3 ammette `settings.mascot = frost_gryphon` oltre a `chicken`. Il pass
 ## Schema 4: Ember wyvern
 
 Aggiunge il valore `ember_wyvern` al catalogo. Il passo v3 -> v4 conserva selezione, note, timer e frasi. Anche questo ampliamento del dominio enum richiede una versione esplicita per impedire riscritture da applicazioni precedenti.
+
+## Schema 5: pause delle frasi
+
+Aggiunge `settings.speech_min_minutes` e `settings.speech_max_minutes`: minuti interi da 1 a 1440, minimo non superiore al massimo. I default Serde sono 5 e 10. Il passo esplicito v4 -> v5 conserva note, timer, mascotte e frasi personali, con backup esatto e salvataggio atomico. Le pause vengono scelte casualmente dopo ogni vignetta e non rallentano beccate e svolazzi. Valori uguali definiscono una pausa fissa.

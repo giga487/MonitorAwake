@@ -1,0 +1,86 @@
+name: Release Windows setup
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  windows-setup:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> ../target
+      - name: Check tag and application versions
+        run: node scripts/check-release-version.mjs
+      - run: npm ci
+      - run: npm run test:widget
+      - run: npm run check
+      - run: npm run build
+      - run: cargo fmt --all -- --check
+      - run: cargo test --workspace --no-default-features --locked
+      - name: Build setup and upload to draft release
+        id: bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --bundles nsis -- --locked
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: MonitorAwake ${{ env.RELEASE_TAG }}
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: false
+          generateReleaseNotes: true
+          releaseBody: |
+            Download the Windows x64 `-setup.exe` from Assets below.
+            Quit MonitorAwake before installing an update.
+
+            Includes desktop notes, named timers, configurable recurring phrases,
+            and Chicken, Frost gryphon and Ember wyvern pixel-art companions.
+            Existing local data is migrated automatically with an exact backup.
+      - name: Publish completed release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ steps.bundle.outputs.releaseId }}
+        with:
+          script: |
+            const releaseId = Number(process.env.RELEASE_ID);
+            if (!releaseId) throw new Error('Build did not return a release ID.');
+            const { data: assets } = await github.rest.repos.listReleaseAssets({
+              ...context.repo, release_id: releaseId,
+            });
+            if (!assets.some(asset => asset.name.endsWith('-setup.exe') && asset.size > 0)) {
+              throw new Error('No Windows setup attached; leaving the release as a draft.');
+            }
+            await github.rest.repos.updateRelease({
+              ...context.repo, release_id: releaseId, draft: false, make_latest: 'true',
+            });

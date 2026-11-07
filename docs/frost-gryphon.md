@@ -1,5 +1,7 @@
 # Frost gryphon
 
+Aggiornamento grafico: il catalogo usa ora la versione pixel art; dettagli e prompt in [Pixel-art redesign](pixel-mascots.md). I riferimenti agli atlanti dipinti qui sotto descrivono la prima versione, conservata come sorgente.
+
 Seconda mascotte di MonitorAwake, distinta dall'icona neutra dell'app. Si seleziona da **Mascot > Frost gryphon** nel menu o da **Preferences > Your mascot**.
 
 `public/frost-gryphon-actions.png` e un atlante PNG a sfondo alpha trasparente, generato con ImageGen il 7 novembre 2026. Il riferimento fornito dall'utente e una schermata di World of Warcraft nella neve: ha ispirato la palette fredda e la resa fantasy dipinta, senza riprodurre schermata, interfaccia o loghi.

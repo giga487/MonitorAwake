@@ -30,6 +30,14 @@ fn migrate_v3_to_v4(mut model: Model) -> Result<Model, String> {
     Ok(model)
 }
 
+fn migrate_v4_to_v5(mut model: Model) -> Result<Model, String> {
+    if model.schema_version != 4 {
+        return Err("Invalid schema 4. The original file has been preserved.".into());
+    }
+    model.schema_version = 5;
+    Ok(model)
+}
+
 pub fn save(path: &Path, model: &Model) -> Result<(), String> {
     model.validate()?;
     let parent = path.parent().ok_or("Invalid data directory")?;
@@ -65,8 +73,14 @@ pub fn load(path: &Path) -> Result<Model, String> {
         }
         2 => migrate_v3_to_v4(migrate_v2_to_v3(serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 2; original preserved: {e}"))?)?)?,
         3 => migrate_v3_to_v4(serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 3; original preserved: {e}"))?)?,
+        4 => serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 4; original preserved: {e}"))?,
         v if v == u64::from(SCHEMA_VERSION) => serde_json::from_value(value).map_err(|e| format!("Invalid data file, preserved: {e}"))?,
         _ => return Err("Unsupported data schema. Use a newer compatible version of MonitorAwake. The original file has been preserved.".into()),
+    };
+    let model = if model.schema_version == 4 {
+        migrate_v4_to_v5(model)?
+    } else {
+        model
     };
     model.validate()?;
     if version != u64::from(SCHEMA_VERSION) {
@@ -195,6 +209,69 @@ mod tests {
             .collect();
         assert_eq!(backups.len(), 1);
         assert_eq!(fs::read(&backups[0]).unwrap(), original);
+    }
+
+    #[test]
+    fn v4_migration_adds_speech_interval_and_preserves_personal_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let mut before = Model::default();
+        before.apply(&crate::core::Action::CreateNote, 0).unwrap();
+        let note_id = before.notes[0].id;
+        before
+            .apply(
+                &crate::core::Action::SetNoteReminder {
+                    id: note_id,
+                    seconds: 60,
+                },
+                0,
+            )
+            .unwrap();
+        before.settings.mascot = MascotKind::EmberWyvern;
+        before.settings.phrases = vec!["Una frase personale.".into()];
+        before.schema_version = 4;
+        let mut legacy = serde_json::to_value(&before).unwrap();
+        let settings = legacy["settings"].as_object_mut().unwrap();
+        settings.remove("speech_min_minutes");
+        settings.remove("speech_max_minutes");
+        let original = serde_json::to_vec_pretty(&legacy).unwrap();
+        fs::write(&path, &original).unwrap();
+        let mut after = load(&path).unwrap();
+        assert_eq!(after.schema_version, SCHEMA_VERSION);
+        assert_eq!(after.settings.speech_min_minutes, 5);
+        assert_eq!(after.settings.speech_max_minutes, 10);
+        assert_eq!(after.settings.phrases, before.settings.phrases);
+        assert_eq!(after.settings.mascot, MascotKind::EmberWyvern);
+        assert_eq!(after.notes, before.notes);
+        assert_eq!(after.timers[0].id, before.timers[0].id);
+        after.settings.speech_min_minutes = 7;
+        after.settings.speech_max_minutes = 7;
+        save(&path, &after).unwrap();
+        let restored = load(&path).unwrap();
+        assert_eq!(restored.settings.speech_min_minutes, 7);
+        assert_eq!(restored.settings.speech_max_minutes, 7);
+        let backups: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p != &path)
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read(&backups[0]).unwrap(), original);
+    }
+
+    #[test]
+    fn speech_interval_rejects_invalid_bounds() {
+        let mut settings = Settings::default();
+        for (min, max) in [(0, 10), (10, 5), (1, 1441)] {
+            settings.speech_min_minutes = min;
+            settings.speech_max_minutes = max;
+            assert!(settings.validate().is_err());
+        }
+        for (min, max) in [(1, 1), (5, 10), (1440, 1440)] {
+            settings.speech_min_minutes = min;
+            settings.speech_max_minutes = max;
+            assert!(settings.validate().is_ok());
+        }
     }
 
     #[test]
