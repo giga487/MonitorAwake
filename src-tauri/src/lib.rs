@@ -1,5 +1,11 @@
 pub mod core;
+#[cfg(feature = "desktop")]
+mod desktop_notes;
+#[cfg(feature = "desktop")]
+mod desktop_speech;
 pub mod http;
+pub mod notes;
+pub mod persistence;
 pub mod platform;
 pub mod service;
 
@@ -194,8 +200,8 @@ mod desktop {
     }
 
     #[tauri::command]
-    fn quit(app: tauri::AppHandle) {
-        app.exit(0);
+    async fn quit(app: tauri::AppHandle) -> Result<(), String> {
+        crate::desktop_notes::graceful_quit(app).await
     }
 
     pub fn run() -> Result<(), String> {
@@ -207,8 +213,11 @@ mod desktop {
                 dispatch,
                 configuration_url,
                 open_configuration,
-                quit
+                quit,
+                crate::desktop_notes::note_flush_done,
+                crate::desktop_speech::set_speech_visible
             ])
+            .manage(crate::desktop_notes::QuitCoordinator::default())
             .on_window_event(|window, event| {
                 if window.label() == "controls"
                     && let tauri::WindowEvent::CloseRequested { api, .. } = event
@@ -217,9 +226,23 @@ mod desktop {
                     api.prevent_close();
                     let _ = window.hide();
                 } else if window.label() == "mascot"
-                    && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
                 {
-                    window.app_handle().exit(0);
+                    api.prevent_close();
+                    let app = window.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = crate::desktop_notes::graceful_quit(app.clone()).await
+                            && let Some(runtime) = app.try_state::<AppRuntime>()
+                            && let Ok(mut service) = runtime.service.lock()
+                        {
+                            service.desktop_error = Some(error);
+                        }
+                    });
+                } else if window.label().starts_with("note-")
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                {
+                    api.prevent_close();
+                    crate::desktop_notes::close_note(window.app_handle(), window.label());
                 }
             })
             .setup(|app| {
@@ -239,6 +262,10 @@ mod desktop {
                 ))
                 .map_err(std::io::Error::other)?;
                 app.manage(runtime);
+                if let Some(speech) = app.get_webview_window("speech") {
+                    let _ = speech.set_ignore_cursor_events(true);
+                }
+                crate::desktop_notes::start(app.handle().clone());
                 Ok(())
             })
             .build(tauri::generate_context!())

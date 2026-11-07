@@ -1,7 +1,7 @@
 import type { Timer } from './api';
 
 export type MascotKind = 'chicken';
-export type IdleAction = 'peck' | 'flutter';
+export type IdleAction = 'peck' | 'flutter' | 'speak';
 export type MascotState =
   | 'waiting'
   | 'random-action'
@@ -72,11 +72,39 @@ export function notificationEggs(timers: readonly Timer[], now: number) {
     });
 }
 
-export function idleActionPlan(random: () => number = Math.random) {
-  const action: IdleAction = random() < 0.5 ? 'peck' : 'flutter';
+export function selectRecurringPhrase(
+  phrases: readonly string[],
+  previous: string | null,
+  random: () => number = Math.random,
+): string | null {
+  const available = phrases.filter((text) => text.trim() && text !== previous);
+  const choices = available.length
+    ? available
+    : phrases.filter((text) => text.trim());
+  return choices.length
+    ? choices[
+        Math.min(choices.length - 1, Math.floor(random() * choices.length))
+      ]
+    : null;
+}
+
+export function idleActionPlan(
+  random: () => number = Math.random,
+  speech = false,
+) {
+  const roll = random();
+  const action: IdleAction = speech
+    ? roll < 1 / 3
+      ? 'peck'
+      : roll < 2 / 3
+        ? 'flutter'
+        : 'speak'
+    : roll < 0.5
+      ? 'peck'
+      : 'flutter';
   return {
     action,
     delay: 10_000 + Math.floor(random() * 15_000),
-    duration: action === 'peck' ? 1800 : 1400,
+    duration: action === 'peck' ? 1800 : action === 'flutter' ? 1400 : 6000,
   };
 }

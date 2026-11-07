@@ -6,6 +6,8 @@ L'interfaccia, i messaggi e le notifiche dell'app sono in inglese. Esempi: `time
 
 ## Prima versione
 
+Le **Desktop notes** si creano dal menu con **New note** e si ritrovano in **My notes**: testo e titolo, quattro colori, primo piano, ridimensionamento, salvataggio automatico e promemoria opzionali. Chiudere nasconde; cancellare richiede una conferma separata. Le frasi della vignetta si configurano in **Preferences > Recurring phrases**. L'icona dell'app e neutra e distinta dalla mascotte. Dettagli in [Note desktop e frasi ricorrenti](docs/notes.md).
+
 La mascotte si sceglie dal menu o dalle preferenze; al momento e disponibile **Chicken**. La gallina guarda in alto durante l'attesa, ogni tanto becca o svolazza e cova quando ci sono notifiche in attesa. Ogni notifica ha un uovo: verde con piu del 50% del tempo rimanente, giallo fino al 20%, rosso nella fase finale. Dopo la scadenza l'uovo rimane incrinato fino alla conferma. Animazioni disattivabili; supporto a riduzione del movimento. Dettagli e provenienza degli asset in `docs/mascot.md`.
 
 Sul desktop rimane solo la gallina, inizialmente posizionata sopra la barra delle applicazioni. Trascinala con il tasto sinistro; il tasto destro apre il pannello con comandi, timer, configurazione, minimizzazione e uscita. Il pannello si chiude con Esc, con un clic sulla gallina o all'esterno, oppure passando a un'altra applicazione. Da tastiera: Tab per raggiungere la gallina, Invio/Spazio o Maiusc+F10 per aprire il pannello. Le scadenze e gli errori mostrano un piccolo avviso sulla mascotte anche con il pannello chiuso. Il posizionamento automatico dipende dalle funzionalita del desktop, in particolare su Wayland.
@@ -87,7 +89,7 @@ Stampa il link privato nel terminale e non apre browser. In questa modalità gli
 
 ## Dati e comportamento
 
-Il formato attuale usa `schema_version: 1` per l'intero archivio. Il requisito di versionamento per tutti i dati, le regole di migrazione e l'introduzione futura delle note sono documentati in [Dati persistenti e migrazioni](docs/persistence.md).
+Il formato attuale usa `schema_version: 2` per l'intero archivio. La migrazione dalla versione 1 crea un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
 
 - Windows: `%LOCALAPPDATA%\MonitorAwake\state.json`.
 - Linux: directory dati locale dell'utente (`$XDG_DATA_HOME/MonitorAwake`, normalmente `~/.local/share/MonitorAwake`).

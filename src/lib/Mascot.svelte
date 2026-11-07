@@ -7,6 +7,7 @@
     mascotState,
     notificationEggs,
     idleActionPlan,
+    selectRecurringPhrase,
     type MascotKind,
     type IdleAction,
   } from './mascot';
@@ -16,16 +17,25 @@
     now,
     animations = true,
     kind = 'chicken',
+    phrases = [],
+    speechEnabled = false,
+    onSpeech,
   }: {
     timers?: Timer[];
     now: number;
     animations?: boolean;
     kind?: MascotKind;
+    phrases?: string[];
+    speechEnabled?: boolean;
+    onSpeech?: (text: string | null) => void;
   } = $props();
   let action = $state<IdleAction | null>(null);
   let mounted = $state(false);
   let reducedMotion = $state(false);
   let visible = $state(true);
+  let quote = $state('');
+  let previousQuote: string | null = null;
+  const allowSpeech = $derived(speechEnabled && phrases.length > 0);
   const character = $derived(
     mascots.find((mascot) => mascot.id === kind) ?? mascots[0],
   );
@@ -67,27 +77,47 @@
   });
 
   $effect(() => {
+    const speech = allowSpeech;
     if (!canPlay) {
       action = null;
+      quote = '';
+      onSpeech?.(null);
       return;
     }
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
-      const plan = idleActionPlan();
+      const plan = idleActionPlan(Math.random, speech);
       timer = setTimeout(() => {
         action = plan.action;
+        if (plan.action === 'speak') {
+          const text = selectRecurringPhrase(phrases, previousQuote);
+          if (text) {
+            quote = text;
+            previousQuote = text;
+            onSpeech?.(text);
+          }
+        }
         timer = setTimeout(() => {
           action = null;
+          quote = '';
+          onSpeech?.(null);
           schedule();
         }, plan.duration);
       }, plan.delay);
     };
     schedule();
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      quote = '';
+      onSpeech?.(null);
+    };
   });
 </script>
 
 <span class="mascot-stage" class:motionless={!animate} data-state={activity}>
+  {#if quote && !onSpeech}<span class="preview-quote" role="status"
+      >{quote}</span
+    >{/if}
   <span
     class="chicken-sprite"
     class:ready={activity === 'notification-ready'}
@@ -151,6 +181,33 @@
 </span>
 
 <style>
+  .preview-quote {
+    position: absolute;
+    z-index: 3;
+    bottom: 130px;
+    left: -40px;
+    width: 230px;
+    padding: 12px;
+    background: #fffef9;
+    color: #526644;
+    border: 1px solid #dbe4d1;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .chicken-sprite[data-pose='speak'] {
+    background-position: 0 0;
+    animation: talking 1.5s ease-in-out infinite;
+  }
+  @keyframes talking {
+    0%,
+    100% {
+      transform: rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-2px) rotate(2deg);
+    }
+  }
   .mascot-stage {
     position: relative;
     display: block;

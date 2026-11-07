@@ -4,11 +4,11 @@ Requisito concordato: tutti i dati persistenti devono appartenere a uno schema v
 
 ## Stato attuale
 
-`state.json` contiene una versione globale `schema_version: 1`, i timer e le preferenze, inclusa la mascotte. La versione globale copre l'intero documento, anche i campi delle preferenze: non serve una versione per ogni timer o impostazione.
+`state.json` contiene una versione globale `schema_version: 2`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
 
-`Model::validate` rifiuta versioni diverse da 1. `Service::load` carica e valida il documento; i salvataggi sostituiscono il file tramite un file temporaneo. Un documento corrotto o di versione non supportata non viene sovrascritto. Al momento non esiste una catena di migrazioni tra versioni.
+`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente e la migrazione v1 -> v2: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v1-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v2 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
 
-Il campo opzionale `settings.mascot` usa un default Serde per leggere i file precedenti come `chicken`. Questo e un caso di aggiunta compatibile; cambiamenti incompatibili richiedono una migrazione esplicita.
+Il campo opzionale `settings.mascot` usa un default Serde per leggere i file precedenti come `chicken`. Anche le preferenze delle frasi hanno default espliciti. La revisione del testo di ogni nota (`content_revision`) impedisce a un editor obsoleto di sovrascrivere modifiche nuove; non e una versione dello schema. Colore, geometria e visibilita non incrementano la revisione del testo.
 
 ## Contratto per le prossime modifiche
 
@@ -26,11 +26,11 @@ Il campo opzionale `settings.mascot` usa un default Serde per leggere i file pre
 
 ## Incremento previsto per le note
 
-Le note desktop sono ancora una proposta grafica. La loro implementazione deve includere il formato persistente e le relative migrazioni, non rinviarli a un aggiornamento successivo.
+Le note desktop e le frasi ricorrenti sono implementate nello schema 2; il formato persistente e la migrazione fanno parte dello stesso incremento.
 
-Preferire inizialmente lo stesso archivio dei timer per mantenere coerenti le note e gli eventuali promemoria collegati. Per l'introduzione delle note prevedere una nuova versione dello schema e una migrazione dalla v1 che conservi timer, identificatori, scadenze e preferenze, inizializzando una raccolta note vuota.
+Le note usano lo stesso archivio dei timer. La creazione o cancellazione di un promemoria collegato e una sola modifica del modello, validata e salvata prima di diventare visibile all'interfaccia. I riferimenti mancanti o condivisi tra piu note sono rifiutati. Svuotare lo storico rimuove i riferimenti alle scadenze eliminate.
 
-Il formato deve descrivere esplicitamente testo, identificatore stabile, colore, visibilita, stato fissato in primo piano e geometria delle note. La chiusura di una nota deve aggiornare la visibilita senza eliminarne il contenuto. Definire unita delle coordinate e fallback quando monitor o scala cambiano. Conservare un eventuale riferimento al timer tramite identificatore, senza una seconda copia indipendente della scadenza.
+Ogni nota salva identificatore UUID, titolo, testo, colore, visibilita, primo piano, geometria, revisione del contenuto e riferimento opzionale al timer. Le coordinate x/y sono pixel fisici globali; larghezza e altezza sono pixel logici. Il ripristino limita la posizione all'area di lavoro di un monitor disponibile; su Wayland puo decidere il compositor. Nascondere la nota conserva testo e promemoria. L'archivio accetta fino a 100 note (80 caratteri per il titolo, 10.000 per il testo), 50 frasi di 180 caratteri e un file totale di massimo 8 MiB.
 
 L'identita dell'app rimane neutra: la gallina e un valore della preferenza mascotte, non il nome o l'identificatore del formato delle note.
 
@@ -38,4 +38,4 @@ L'identita dell'app rimane neutra: la gallina e un valore della preferenza masco
 
 Conservare fixture dei formati distribuiti e verificare migrazione, riapertura del file migrato, conservazione di testo e identificatori, impostazioni opzionali, riferimenti tra note e timer, file corrotti, versioni future, backup e fallimenti di scrittura. Ripetere il caricamento dopo una migrazione riuscita non deve duplicare note o promemoria. Verificare che un errore lasci intatto il file originale.
 
-Queste sono specifiche per i prossimi incrementi: backup e catena di migrazioni non sono ancora implementati.
+Backup, migrazione v1 -> v2, protezione dei formati futuri e conflitti di modifica sono implementati e coperti dai test Rust e HTTP. Le migrazioni successive richiederanno nuovi passi espliciti e fixture del formato precedente.

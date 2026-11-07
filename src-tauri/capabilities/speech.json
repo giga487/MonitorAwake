@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "speech",
+  "description": "Non-focusable local mascot speech bubble.",
+  "windows": ["speech"],
+  "permissions": ["core:default"]
+}

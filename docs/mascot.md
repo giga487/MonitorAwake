@@ -1,13 +1,13 @@
 # Gallina con viso a schermo
 
-Asset: `public/mascot.png`, PNG trasparente generato con il tool integrato imagegen il 6 novembre 2026. Gallina in pixel art con cresta rossa, ali, zampe e viso su un display verde fosforo, scelta dall'utente al posto del terminale robot. Le icone desktop vengono ricavate con `npm run tauri -- icon public/mascot.png --output src-tauri/icons`.
+Asset: `public/mascot.png`, PNG trasparente generato con il tool integrato imagegen il 6 novembre 2026. Gallina in pixel art con cresta rossa, ali, zampe e viso su un display verde fosforo, scelta dall'utente al posto del terminale robot. L'icona neutra dell'app usa invece `public/app-icon.svg`, con rigenerazione tramite `npm run tauri -- icon public/app-icon.svg --output src-tauri/icons`.
 
-L'immagine originale rimane disponibile per l'icona e le illustrazioni statiche. Il widget usa ora `public/chicken-actions.png`, un atlante PNG RGBA trasparente 1254 × 1254, generato con ImageGen il 7 novembre 2026 usando la gallina originale come riferimento. La griglia 2 × 2 contiene quattro pose da 627 × 627: attesa in alto a sinistra, beccata in alto a destra, svolazzo in basso a sinistra, cova in basso a destra. Non contiene uova: vengono disegnate separatamente per rappresentare i timer reali.
+L'immagine originale rimane disponibile per le illustrazioni statiche. Il widget usa ora `public/chicken-actions.png`, un atlante PNG RGBA trasparente 1254 × 1254, generato con ImageGen il 7 novembre 2026 usando la gallina originale come riferimento. La griglia 2 × 2 contiene quattro pose da 627 × 627: attesa in alto a sinistra, beccata in alto a destra, svolazzo in basso a sinistra, cova in basso a destra. Non contiene uova: vengono disegnate separatamente per rappresentare i timer reali.
 
 ## Stati e notifiche
 
 - **Waiting:** guarda in alto e si inclina leggermente.
-- **Random action:** ogni 10–25 secondi senza notifiche, becca oppure tenta di svolazzare; le azioni durano meno di due secondi.
+- **Random action:** ogni 10–25 secondi senza notifiche, becca, tenta di svolazzare oppure mostra una frase configurata. Beccata e svolazzo durano meno di due secondi; la vignetta sei secondi.
 - **Waiting for notification:** cova con una respirazione lenta e un uovo per ogni timer attivo.
 - **Notification ready:** segnala la scadenza; le uova pronte sono rosse e incrinate fino alla conferma dell'avviso.
 

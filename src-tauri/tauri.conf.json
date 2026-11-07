@@ -37,6 +37,22 @@
         "visible": false,
         "focus": false,
         "skipTaskbar": true
+      },
+      {
+        "label": "speech",
+        "title": "MonitorAwake — A little thought",
+        "url": "index.html",
+        "width": 300,
+        "height": 200,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false,
+        "focusable": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

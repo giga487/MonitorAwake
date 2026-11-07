@@ -13,8 +13,32 @@ export interface Settings {
   animations: boolean;
   notifications: boolean;
   mascot: 'chicken';
+  phrases: string[];
+  speech_enabled: boolean;
+}
+export type NoteColor = 'yellow' | 'sage' | 'blue' | 'rose';
+export interface NoteBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+export interface Note {
+  id: string;
+  title: string;
+  body: string;
+  color: NoteColor;
+  visible: boolean;
+  pinned: boolean;
+  bounds: NoteBounds;
+  content_revision: number;
+  reminder_id: string | null;
 }
 export interface Snapshot {
+  schema_version: number;
+  app_version: string;
+  notes: Note[];
+  desktop_error: string | null;
   timers: Timer[];
   settings: Settings;
   manual_mode: AwakeMode;
@@ -26,6 +50,25 @@ export interface Snapshot {
   now_ms: number;
 }
 export type Action =
+  | { type: 'create_note' }
+  | {
+      type: 'update_note';
+      id: string;
+      expected_revision: number;
+      title: string;
+      body: string;
+    }
+  | {
+      type: 'set_note_appearance';
+      id: string;
+      color: NoteColor;
+      pinned: boolean;
+    }
+  | { type: 'set_note_visible'; id: string; visible: boolean }
+  | { type: 'set_all_notes_visible'; visible: boolean }
+  | { type: 'set_note_bounds'; id: string; bounds: NoteBounds }
+  | { type: 'delete_note'; id: string }
+  | { type: 'set_note_reminder'; id: string; seconds: number }
   | { type: 'add_timer'; name: string; seconds: number; keep_awake: boolean }
   | { type: 'cancel_timer' | 'acknowledge_timer'; id: string }
   | { type: 'extend_timer'; id: string; seconds: number }

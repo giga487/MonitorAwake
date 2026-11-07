@@ -27,7 +27,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/state", get(snapshot))
         .route("/api/action", post(action))
         .fallback(asset)
-        .layer(DefaultBodyLimit::max(16 * 1024))
+        .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(state.clone(), guard))
         .with_state(state)
 }

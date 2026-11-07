@@ -1,5 +1,8 @@
+use crate::notes::{Note, NoteBounds, NoteColor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+pub const SCHEMA_VERSION: u32 = 2;
 
 pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
@@ -39,6 +42,41 @@ pub struct Settings {
     pub notifications: bool,
     #[serde(default)]
     pub mascot: MascotKind,
+    #[serde(default = "default_phrases")]
+    pub phrases: Vec<String>,
+    #[serde(default = "enabled")]
+    pub speech_enabled: bool,
+}
+fn enabled() -> bool {
+    true
+}
+pub fn default_phrases() -> Vec<String> {
+    [
+        "One thing at a time.",
+        "A small break can hatch a good idea.",
+        "I am keeping an eye on the time.",
+        "Got a thought? Give it a note.",
+        "Stretch your wings for a moment.",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
+impl Settings {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.phrases.len() > 50
+            || self.phrases.iter().any(|text| {
+                text.trim().is_empty()
+                    || text.chars().count() > 180
+                    || text.chars().any(char::is_control)
+            })
+        {
+            return Err(
+                "Use up to 50 phrases, each containing 1–180 characters on one line.".into(),
+            );
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -54,23 +92,28 @@ impl Default for Settings {
             animations: true,
             notifications: true,
             mascot: MascotKind::Chicken,
+            phrases: default_phrases(),
+            speech_enabled: true,
         }
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Model {
     pub schema_version: u32,
     pub timers: Vec<Timer>,
     pub settings: Settings,
+    pub notes: Vec<Note>,
 }
 
 impl Default for Model {
     fn default() -> Self {
         Self {
-            schema_version: 1,
+            schema_version: SCHEMA_VERSION,
             timers: vec![],
             settings: Settings::default(),
+            notes: vec![],
         }
     }
 }
@@ -78,6 +121,36 @@ impl Default for Model {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    CreateNote,
+    UpdateNote {
+        id: Uuid,
+        expected_revision: u64,
+        title: String,
+        body: String,
+    },
+    SetNoteAppearance {
+        id: Uuid,
+        color: NoteColor,
+        pinned: bool,
+    },
+    SetNoteVisible {
+        id: Uuid,
+        visible: bool,
+    },
+    SetAllNotesVisible {
+        visible: bool,
+    },
+    SetNoteBounds {
+        id: Uuid,
+        bounds: NoteBounds,
+    },
+    DeleteNote {
+        id: Uuid,
+    },
+    SetNoteReminder {
+        id: Uuid,
+        seconds: u64,
+    },
     AddTimer {
         name: String,
         seconds: u64,
@@ -107,8 +180,12 @@ pub enum Action {
 
 impl Model {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema_version != 1 {
+        if self.schema_version != SCHEMA_VERSION {
             return Err("Unsupported data file version. The file has been preserved.".into());
+        }
+        self.settings.validate()?;
+        if self.notes.len() > crate::notes::MAX_NOTES {
+            return Err("The data file contains too many notes.".into());
         }
         if self.timers.len() > MAX_TIMERS {
             return Err("The data file contains too many timers.".into());
@@ -119,6 +196,25 @@ impl Model {
             validate_duration(timer.duration_seconds)?;
             if !ids.insert(timer.id) {
                 return Err("The data file contains duplicate IDs.".into());
+            }
+        }
+        let mut note_reminders = std::collections::HashSet::new();
+        for note in &self.notes {
+            crate::notes::validate_text(&note.title, &note.body)?;
+            note.bounds.validate()?;
+            if !ids.insert(note.id) {
+                return Err("The data file contains duplicate IDs.".into());
+            }
+            if note
+                .reminder_id
+                .is_some_and(|id| !self.timers.iter().any(|timer| timer.id == id))
+            {
+                return Err("A note references a missing reminder.".into());
+            }
+            if let Some(id) = note.reminder_id
+                && !note_reminders.insert(id)
+            {
+                return Err("Multiple notes reference the same reminder.".into());
             }
         }
         Ok(())
@@ -176,6 +272,14 @@ impl Model {
 
     pub fn apply(&mut self, action: &Action, now: u64) -> Result<String, String> {
         match action {
+            Action::CreateNote
+            | Action::UpdateNote { .. }
+            | Action::SetNoteAppearance { .. }
+            | Action::SetNoteVisible { .. }
+            | Action::SetAllNotesVisible { .. }
+            | Action::SetNoteBounds { .. }
+            | Action::DeleteNote { .. }
+            | Action::SetNoteReminder { .. } => self.apply_note(action, now),
             Action::AddTimer {
                 name,
                 seconds,
@@ -216,12 +320,21 @@ impl Model {
                 Ok(format!("Time added to timer «{}».", t.name))
             }
             Action::UpdateSettings { settings } => {
+                settings.validate()?;
                 self.settings = settings.clone();
                 Ok("Preferences saved.".into())
             }
             Action::ClearHistory => {
                 self.timers
                     .retain(|t| matches!(t.status, TimerStatus::Running | TimerStatus::Expired));
+                for note in &mut self.notes {
+                    if note
+                        .reminder_id
+                        .is_some_and(|id| !self.timers.iter().any(|timer| timer.id == id))
+                    {
+                        note.reminder_id = None;
+                    }
+                }
                 Ok("History cleared. Active timers and alerts have been kept.".into())
             }
             _ => Err("This action must be handled by the service.".into()),

@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createSaveQueue } from '../src/lib/save-queue.ts';
 import { menuPosition, notificationSeconds } from '../src/lib/widget.ts';
 import {
   mascotState,
   notificationEggs,
   idleActionPlan,
+  selectRecurringPhrase,
 } from '../src/lib/mascot.ts';
 
 test('popup stays on screen without changing the mascot anchor', () => {
@@ -139,4 +141,64 @@ test('idle actions are bounded and include both pecking and fluttering', () => {
     idleActionPlan(() => 0.999),
     { action: 'flutter', delay: 24_985, duration: 1400 },
   );
+});
+
+test('speech is a third optional action and does not immediately repeat phrases', () => {
+  assert.equal(idleActionPlan(() => 0.99, true).action, 'speak');
+  assert.equal(idleActionPlan(() => 0.99, false).action, 'flutter');
+  assert.equal(selectRecurringPhrase([], null), null);
+  assert.equal(
+    selectRecurringPhrase(['A', 'B'], 'A', () => 0),
+    'B',
+  );
+  assert.equal(
+    selectRecurringPhrase(['A'], 'A', () => 0),
+    'A',
+  );
+  assert.equal(
+    selectRecurringPhrase(['', '   ', 'B'], null, () => 0),
+    'B',
+  );
+});
+
+test('autosave, Close and Quit share a drain and save edits made during a write', async () => {
+  let dirty = true,
+    writes = 0,
+    release;
+  const flush = createSaveQueue(
+    async () => {
+      writes++;
+      dirty = false;
+      if (writes === 1) await new Promise((resolve) => (release = resolve));
+      return true;
+    },
+    () => dirty,
+  );
+  const first = flush(),
+    second = flush();
+  assert.equal(first, second);
+  assert.equal(writes, 1);
+  dirty = true;
+  release();
+  assert.equal(await first, true);
+  assert.equal(writes, 2);
+  assert.equal(dirty, false);
+});
+
+test('a failed autosave keeps changes dirty and a later explicit retry can save them', async () => {
+  let dirty = true,
+    fail = true;
+  const flush = createSaveQueue(
+    async () => {
+      if (fail) return false;
+      dirty = false;
+      return true;
+    },
+    () => dirty,
+  );
+  assert.equal(await flush(), false);
+  assert.equal(dirty, true);
+  fail = false;
+  assert.equal(await flush(), true);
+  assert.equal(dirty, false);
 });

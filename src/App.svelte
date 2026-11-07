@@ -10,7 +10,12 @@
   } from '@tauri-apps/api/window';
   import Icon from './lib/Icon.svelte';
   import Mascot from './lib/Mascot.svelte';
+  import NoteEditor from './lib/NoteEditor.svelte';
+  import NotesPanel from './lib/NotesPanel.svelte';
+  import PhraseSettings from './lib/PhraseSettings.svelte';
+  import SpeechBubble from './lib/SpeechBubble.svelte';
   import { mascots, type MascotKind } from './lib/mascot';
+  import { selectRecurringPhrase } from './lib/mascot';
   import {
     durationUnits,
     notificationSeconds,
@@ -45,7 +50,54 @@
   let clockOffset = 0;
   let configUrl = $state('');
   const isPanel = desktop && getCurrentWindow().label === 'controls';
+  const isSpeech = desktop && getCurrentWindow().label === 'speech';
+  const noteId =
+    desktop && getCurrentWindow().label.startsWith('note-')
+      ? getCurrentWindow().label.slice(5)
+      : null;
+  const currentNote = $derived(
+    snapshot?.notes.find((note) => note.id === noteId),
+  );
+  let panelSection = $state<'home' | 'notes'>('home');
   let changingMenu = false;
+
+  async function showPhrase(text: string | null) {
+    if (!desktop || isPanel || isSpeech || noteId) return;
+    try {
+      const bubble = await Window.getByLabel('speech');
+      if (!bubble) return;
+      if (!text) {
+        await invoke('set_speech_visible', { visible: false });
+        return;
+      }
+      const mascot = getCurrentWindow();
+      const [position, size, bubbleSize, monitor, scale] = await Promise.all([
+        mascot.outerPosition(),
+        mascot.outerSize(),
+        bubble.outerSize(),
+        currentMonitor(),
+        mascot.scaleFactor(),
+      ]);
+      const target = menuPosition(
+        position,
+        size,
+        bubbleSize,
+        monitor?.workArea ?? null,
+        Math.round(5 * scale),
+      );
+      try {
+        await bubble.setPosition(new PhysicalPosition(target.x, target.y));
+      } catch {
+        /* Compositor chooses a fallback. */
+      }
+      const panel = await Window.getByLabel('controls');
+      if (await panel?.isVisible()) return;
+      await bubble.emitTo('speech', 'mascot-phrase', text);
+      await invoke('set_speech_visible', { visible: true });
+    } catch (e) {
+      error = String(e);
+    }
+  }
 
   async function selectMascot(mascot: MascotKind) {
     if (snapshot)
@@ -64,6 +116,7 @@
       if (!panel || !mascot)
         throw new Error('Desktop menu unavailable. Restart the app.');
       if (open) {
+        await invoke('set_speech_visible', { visible: false });
         try {
           const [position, size, panelSize, scale] = await Promise.all([
             mascot.outerPosition(),
@@ -144,7 +197,7 @@
       error = `Automatic positioning is unavailable: ${String(e)}`;
     }
   }
-  let section = $state<'timers' | 'settings'>('timers');
+  let section = $state<'timers' | 'notes' | 'settings'>('timers');
   const running = $derived(
     snapshot?.timers
       .filter((t) => t.status === 'running')
@@ -182,9 +235,33 @@
 
   onMount(() => {
     document.documentElement.classList.toggle('desktop', desktop);
-    if (desktop && !isPanel) void dockMascot();
+    if (desktop && !isPanel && !isSpeech && !noteId) void dockMascot();
     authenticated = initializeSession();
     let stopped = false;
+    let removePreview = () => {};
+    let previewTimer: ReturnType<typeof setTimeout>;
+    if (desktop && !isPanel && !isSpeech && !noteId) {
+      void getCurrentWindow()
+        .listen('preview-phrase', async () => {
+          clearTimeout(previewTimer);
+          await setMenu(false, false);
+          const text = selectRecurringPhrase(
+            snapshot?.settings.phrases ?? [],
+            null,
+          );
+          if (text) {
+            await showPhrase(text);
+            previewTimer = setTimeout(() => {
+              void showPhrase(null);
+            }, 6000);
+          }
+        })
+        .then((fn) => {
+          if (stopped) fn();
+          else removePreview = fn;
+        })
+        .catch((e) => (error = String(e)));
+    }
     let timeout: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
@@ -208,6 +285,8 @@
       stopped = true;
       clearTimeout(timeout);
       clearInterval(clock);
+      removePreview();
+      clearTimeout(previewTimer);
     };
   });
 
@@ -265,6 +344,7 @@
 
   async function drag(event: PointerEvent) {
     if (event.button !== 0) return;
+    void showPhrase(null);
     try {
       await getCurrentWindow().startDragging();
     } catch (e) {
@@ -274,7 +354,7 @@
 </script>
 
 <svelte:window
-  onkeydown={desktop ? widgetKey : undefined}
+  onkeydown={desktop && !noteId && !isSpeech ? widgetKey : undefined}
   onblur={() => {
     if (isPanel) void setMenu(false, false);
   }}
@@ -354,7 +434,18 @@
   </form>
 {/snippet}
 
-{#if desktop}
+{#if noteId}
+  {#if snapshot && currentNote}<NoteEditor
+      note={currentNote}
+      {snapshot}
+      native
+      onstate={accept}
+    />{:else}<p class="native-loading">
+      {connectionError || 'Loading note…'}
+    </p>{/if}
+{:else if isSpeech}
+  <SpeechBubble />
+{:else if desktop}
   <main
     class={isPanel ? 'controls-window' : 'widget'}
     class:still={snapshot && !snapshot.settings.animations}
@@ -409,70 +500,88 @@
             >
           {:else}<span>{message}</span>{/if}
         </div>
-        <div class="widget-controls">
-          {#if notificationStep === 'menu'}
-            <button
-              class="menu-item"
-              onclick={() => (notificationStep = 'details')}
-              ><Icon name="timer" size={18} /><span>Notification</span><Icon
-                name="arrow"
-                size={16}
-              /></button
-            >
-            <details class="advanced-command">
-              <summary>Text command</summary>
-              <form class="command-form compact" onsubmit={sendCommand}>
-                <input
-                  aria-label="Assistant command"
-                  bind:value={command}
-                  maxlength="300"
-                  placeholder="Timer tea 5 minutes…"
-                  disabled={!snapshot}
-                />
-                <button
-                  class="icon-button"
-                  disabled={busy || !command.trim() || !snapshot}
-                  aria-label="Send command"
-                  ><Icon name="arrow" size={17} /></button
-                >
-              </form>
-            </details>
-          {:else}
-            {@render notificationWizard()}
-            <button
-              class="text-button"
-              onclick={() => (notificationStep = 'menu')}>Back to menu</button
-            >
-          {/if}
-          <div class="widget-toolbar">
-            <button
-              class="text-button awake-button"
-              disabled={busy || !snapshot?.capabilities.system}
-              onclick={() =>
-                act({
-                  type: 'set_awake',
-                  mode: snapshot?.manual_mode === 'off' ? 'system' : 'off',
-                })}
-              aria-label={snapshot?.manual_mode === 'off'
-                ? 'Keep the system awake'
-                : 'Turn off manual keep-awake'}
-            >
-              <span
-                class="status-dot"
-                class:active={snapshot?.applied_mode !== 'off' && !!snapshot}
-              ></span>
-              {snapshot?.applied_mode === 'off' ? 'Paused' : 'Awake'}
-            </button>
-            <button
-              class="icon-button"
-              aria-label="Open settings in your browser"
-              onclick={() => desktopAction('open_configuration')}
-              ><Icon name="settings" size={17} /></button
-            >
-            <button class="text-button url-button" onclick={showUrl}>URL</button
-            >
+        {#if panelSection === 'notes' && snapshot}
+          <NotesPanel {snapshot} onstate={accept} compact />
+          <button class="text-button" onclick={() => (panelSection = 'home')}
+            >Back to menu</button
+          >
+        {:else}
+          <div class="widget-controls">
+            {#if notificationStep === 'menu'}
+              <button
+                class="menu-item"
+                onclick={() => act({ type: 'create_note' })}
+                ><Icon name="plus" size={18} /><span>New note</span></button
+              >
+              <button class="menu-item" onclick={() => (panelSection = 'notes')}
+                ><Icon name="note" size={18} /><span>My notes</span><span
+                  >{snapshot?.notes.length ?? 0}</span
+                ></button
+              >
+              <button
+                class="menu-item"
+                onclick={() => (notificationStep = 'details')}
+                ><Icon name="timer" size={18} /><span>Notification</span><Icon
+                  name="arrow"
+                  size={16}
+                /></button
+              >
+              <details class="advanced-command">
+                <summary>Text command</summary>
+                <form class="command-form compact" onsubmit={sendCommand}>
+                  <input
+                    aria-label="Assistant command"
+                    bind:value={command}
+                    maxlength="300"
+                    placeholder="Timer tea 5 minutes…"
+                    disabled={!snapshot}
+                  />
+                  <button
+                    class="icon-button"
+                    disabled={busy || !command.trim() || !snapshot}
+                    aria-label="Send command"
+                    ><Icon name="arrow" size={17} /></button
+                  >
+                </form>
+              </details>
+            {:else}
+              {@render notificationWizard()}
+              <button
+                class="text-button"
+                onclick={() => (notificationStep = 'menu')}>Back to menu</button
+              >
+            {/if}
+            <div class="widget-toolbar">
+              <button
+                class="text-button awake-button"
+                disabled={busy || !snapshot?.capabilities.system}
+                onclick={() =>
+                  act({
+                    type: 'set_awake',
+                    mode: snapshot?.manual_mode === 'off' ? 'system' : 'off',
+                  })}
+                aria-label={snapshot?.manual_mode === 'off'
+                  ? 'Keep the system awake'
+                  : 'Turn off manual keep-awake'}
+              >
+                <span
+                  class="status-dot"
+                  class:active={snapshot?.applied_mode !== 'off' && !!snapshot}
+                ></span>
+                {snapshot?.applied_mode === 'off' ? 'Paused' : 'Awake'}
+              </button>
+              <button
+                class="icon-button"
+                aria-label="Open settings in your browser"
+                onclick={() => desktopAction('open_configuration')}
+                ><Icon name="settings" size={17} /></button
+              >
+              <button class="text-button url-button" onclick={showUrl}
+                >URL</button
+              >
+            </div>
           </div>
-        </div>
+        {/if}
         <label class="mascot-picker compact-picker" for="desktop-mascot">
           <span>Mascot</span>
           <select
@@ -491,11 +600,23 @@
           Eggs: green · plenty of time, yellow · halfway, red · due soon. A
           cracked egg is ready.
         </p>
-        {#if error || connectionError || snapshot?.backend_error}<p
+        <button
+          class="text-button"
+          disabled={!snapshot?.settings.phrases.length}
+          onclick={() =>
+            getCurrentWindow()
+              .emitTo('mascot', 'preview-phrase')
+              .catch((e) => (error = String(e)))}
+          ><Icon name="chat" size={15} /> Preview phrase</button
+        >
+        {#if error || connectionError || snapshot?.backend_error || snapshot?.desktop_error}<p
             class="widget-error"
             role="alert"
           >
-            {error || connectionError || snapshot?.backend_error}
+            {error ||
+              connectionError ||
+              snapshot?.backend_error ||
+              snapshot?.desktop_error}
           </p>{/if}
         {#if configUrl}<input
             class="url-field"
@@ -526,8 +647,11 @@
           {now}
           animations={snapshot?.settings.animations ?? true}
           kind={snapshot?.settings.mascot ?? 'chicken'}
+          phrases={snapshot?.settings.phrases ?? []}
+          speechEnabled={snapshot?.settings.speech_enabled ?? false}
+          onSpeech={showPhrase}
         />
-        {#if expired.length || error || connectionError || snapshot?.backend_error}
+        {#if expired.length || error || connectionError || snapshot?.backend_error || snapshot?.desktop_error}
           <span class="mascot-alert" aria-live="polite"
             >{expired.length
               ? `${expired.length} expired ${expired.length === 1 ? 'timer' : 'timers'}`
@@ -567,6 +691,12 @@
           <span class="nav-count">{running.length}</span></button
         >
         <button
+          class:chosen={section === 'notes'}
+          onclick={() => (section = 'notes')}
+          ><Icon name="note" /> My notes
+          <span class="nav-count">{snapshot?.notes.length ?? 0}</span></button
+        >
+        <button
           class:chosen={section === 'settings'}
           onclick={() => (section = 'settings')}
           ><Icon name="settings" /> Preferences</button
@@ -600,7 +730,9 @@
           <h1>
             {section === 'timers'
               ? 'One thing at a time.'
-              : 'Just the way you like it.'}
+              : section === 'notes'
+                ? 'A place for your thoughts.'
+                : 'Just the way you like it.'}
           </h1>
           <p class="subtitle">
             {section === 'timers'
@@ -620,6 +752,9 @@
       </header>
       {#if error || connectionError}<div class="notice error" role="alert">
           {error || connectionError}
+        </div>{/if}
+      {#if snapshot?.desktop_error}<div class="notice error" role="alert">
+          {snapshot.desktop_error}
         </div>{/if}
       {#if snapshot?.backend_error}<div class="notice error" role="alert">
           {snapshot.backend_error}
@@ -796,6 +931,10 @@
                 >
               </div>{/each}
           </section>{/if}
+      {:else if section === 'notes'}
+        <section class="panel">
+          {#if snapshot}<NotesPanel {snapshot} onstate={accept} />{/if}
+        </section>
       {:else}
         <section class="panel preferences">
           <h2>Your mascot</h2>
@@ -893,6 +1032,7 @@
             remain visible on the mascot.
           </p>
         </section>
+        {#if snapshot}<PhraseSettings {snapshot} onstate={accept} />{/if}
         <section class="panel preferences">
           <h2>Truly local.</h2>
           <p>
@@ -900,6 +1040,14 @@
             preferences are saved in your user profile.
           </p>
           <dl>
+            <div>
+              <dt>Application version</dt>
+              <dd>{snapshot?.app_version ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Data schema</dt>
+              <dd>{snapshot?.schema_version ?? '—'}</dd>
+            </div>
             <div>
               <dt>Integration</dt>
               <dd>{snapshot?.capabilities.backend ?? 'Waiting'}</dd>
