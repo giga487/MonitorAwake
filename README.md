@@ -6,6 +6,8 @@ L'interfaccia, i messaggi e le notifiche dell'app sono in inglese. Esempi: `time
 
 ## Prima versione
 
+La mascotte si sceglie dal menu o dalle preferenze; al momento e disponibile **Chicken**. La gallina guarda in alto durante l'attesa, ogni tanto becca o svolazza e cova quando ci sono notifiche in attesa. Ogni notifica ha un uovo: verde con piu del 50% del tempo rimanente, giallo fino al 20%, rosso nella fase finale. Dopo la scadenza l'uovo rimane incrinato fino alla conferma. Animazioni disattivabili; supporto a riduzione del movimento. Dettagli e provenienza degli asset in `docs/mascot.md`.
+
 Sul desktop rimane solo la gallina, inizialmente posizionata sopra la barra delle applicazioni. Trascinala con il tasto sinistro; il tasto destro apre il pannello con comandi, timer, configurazione, minimizzazione e uscita. Il pannello si chiude con Esc, con un clic sulla gallina o all'esterno, oppure passando a un'altra applicazione. Da tastiera: Tab per raggiungere la gallina, Invio/Spazio o Maiusc+F10 per aprire il pannello. Le scadenze e gli errori mostrano un piccolo avviso sulla mascotte anche con il pannello chiuso. Il posizionamento automatico dipende dalle funzionalita del desktop, in particolare su Wayland.
 
 Il pannello usa una finestra separata: aprirlo e chiuderlo non sposta o ridimensiona la gallina. Per creare un avviso seleziona **Notification**, scrivi il testo e premi **Next**; scegli quindi una quantita da 0 a 100 e **Seconds**, **Minutes**, **Hours** o **Days**. **Start notification** richiede una quantita intera maggiore di zero. La durata massima e 100 giorni. Lo stesso percorso e disponibile nella configurazione web; i comandi testuali restano nella voce **Text command**. Chiudere il pannello con Alt+F4 lo nasconde; chiudere la finestra della gallina termina l'app.
@@ -84,6 +86,8 @@ npm run server
 Stampa il link privato nel terminale e non apre browser. In questa modalità gli avvisi vengono scritti sul terminale, non nelle notifiche desktop. `Ctrl+C` arresta il server e rilascia il mantenimento in attività. È consentita una sola istanza per cartella dati.
 
 ## Dati e comportamento
+
+Il formato attuale usa `schema_version: 1` per l'intero archivio. Il requisito di versionamento per tutti i dati, le regole di migrazione e l'introduzione futura delle note sono documentati in [Dati persistenti e migrazioni](docs/persistence.md).
 
 - Windows: `%LOCALAPPDATA%\MonitorAwake\state.json`.
 - Linux: directory dati locale dell'utente (`$XDG_DATA_HOME/MonitorAwake`, normalmente `~/.local/share/MonitorAwake`).

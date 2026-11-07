@@ -2,7 +2,22 @@
 
 Asset: `public/mascot.png`, PNG trasparente generato con il tool integrato imagegen il 6 novembre 2026. Gallina in pixel art con cresta rossa, ali, zampe e viso su un display verde fosforo, scelta dall'utente al posto del terminale robot. Le icone desktop vengono ricavate con `npm run tauri -- icon public/mascot.png --output src-tauri/icons`.
 
-La mascotte usa ancora le animazioni CSS di movimento e avviso; questa immagine non è un foglio di fotogrammi.
+L'immagine originale rimane disponibile per l'icona e le illustrazioni statiche. Il widget usa ora `public/chicken-actions.png`, un atlante PNG RGBA trasparente 1254 × 1254, generato con ImageGen il 7 novembre 2026 usando la gallina originale come riferimento. La griglia 2 × 2 contiene quattro pose da 627 × 627: attesa in alto a sinistra, beccata in alto a destra, svolazzo in basso a sinistra, cova in basso a destra. Non contiene uova: vengono disegnate separatamente per rappresentare i timer reali.
+
+## Stati e notifiche
+
+- **Waiting:** guarda in alto e si inclina leggermente.
+- **Random action:** ogni 10–25 secondi senza notifiche, becca oppure tenta di svolazzare; le azioni durano meno di due secondi.
+- **Waiting for notification:** cova con una respirazione lenta e un uovo per ogni timer attivo.
+- **Notification ready:** segnala la scadenza; le uova pronte sono rosse e incrinate fino alla conferma dell'avviso.
+
+Ogni uovo ha il proprio tempo: verde quando rimane più del 50%, giallo tra il 50% e il 20%, rosso nell'ultimo 20%. Le tacche distinguono le fasi anche senza colore; numero, tooltip e testo accessibile identificano le notifiche. Le uova confermate o annullate scompaiono. Un nido affollato si può scorrere con il mouse, senza limitare il numero di uova rappresentate.
+
+`src/lib/mascot.ts` calcola gli stati visivi dai timer Rust. `src/lib/Mascot.svelte` gestisce pose e movimento; non scade timer e non invia notifiche. Le azioni casuali si interrompono quando arrivano notifiche e quando la pagina non è visibile. La preferenza **Gentle animations** e `prefers-reduced-motion` fermano i movimenti senza nascondere uova e stato.
+
+La scelta della mascotte è salvata in `settings.mascot`, attualmente `chicken`. L'enum Rust `MascotKind` con default Serde conserva la compatibilità con i file precedenti. Il catalogo frontend dichiara l'atlante e la descrizione; prima di aggiungere una mascotte vanno realizzate tutte e tre le azioni richieste.
+
+Il prompt dell'atlante richiede la stessa gallina robot in pixel art, quattro pose allineate in celle uguali, sfondo alpha trasparente, nessuna scritta, nessun nido e nessun uovo incorporato. L'asset originale non è stato sovrascritto.
 
 ## Prompt utilizzato
 

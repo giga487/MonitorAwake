@@ -12,6 +12,7 @@ export interface Timer {
 export interface Settings {
   animations: boolean;
   notifications: boolean;
+  mascot: 'chicken';
 }
 export interface Snapshot {
   timers: Timer[];

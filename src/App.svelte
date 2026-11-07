@@ -9,6 +9,8 @@
     PhysicalPosition,
   } from '@tauri-apps/api/window';
   import Icon from './lib/Icon.svelte';
+  import Mascot from './lib/Mascot.svelte';
+  import { mascots, type MascotKind } from './lib/mascot';
   import {
     durationUnits,
     notificationSeconds,
@@ -44,6 +46,14 @@
   let configUrl = $state('');
   const isPanel = desktop && getCurrentWindow().label === 'controls';
   let changingMenu = false;
+
+  async function selectMascot(mascot: MascotKind) {
+    if (snapshot)
+      await act({
+        type: 'update_settings',
+        settings: { ...snapshot.settings, mascot },
+      });
+  }
 
   async function setMenu(open: boolean, restoreFocus = true) {
     if (!desktop || changingMenu) return;
@@ -463,6 +473,24 @@
             >
           </div>
         </div>
+        <label class="mascot-picker compact-picker" for="desktop-mascot">
+          <span>Mascot</span>
+          <select
+            id="desktop-mascot"
+            value={snapshot?.settings.mascot ?? 'chicken'}
+            disabled={busy || !snapshot}
+            onchange={(event) =>
+              selectMascot(event.currentTarget.value as MascotKind)}
+          >
+            {#each mascots as mascot}<option value={mascot.id}
+                >{mascot.name}</option
+              >{/each}
+          </select>
+        </label>
+        <p class="egg-legend">
+          Eggs: green · plenty of time, yellow · halfway, red · due soon. A
+          cracked egg is ready.
+        </p>
         {#if error || connectionError || snapshot?.backend_error}<p
             class="widget-error"
             role="alert"
@@ -484,7 +512,7 @@
     {#if !isPanel}
       <button
         class="mascot-drag"
-        aria-label="Chicken: drag to move, right-click or press Enter for commands"
+        aria-label={`Chicken: ${running.length} pending notifications, ${expired.length} ready. Drag to move, right-click or press Enter for commands.`}
         aria-haspopup="dialog"
         title="Drag to move · Right-click for commands and timers"
         onpointerdown={drag}
@@ -493,12 +521,11 @@
           if (event.detail === 0) void setMenu(true);
         }}
       >
-        <img
-          class="mascot"
-          class:celebrate={expired.length > 0}
-          src="/mascot.png"
-          alt="A pixel art robot chicken with a red comb and a green face on a screen"
-          draggable="false"
+        <Mascot
+          timers={snapshot?.timers ?? []}
+          {now}
+          animations={snapshot?.settings.animations ?? true}
+          kind={snapshot?.settings.mascot ?? 'chicken'}
         />
         {#if expired.length || error || connectionError || snapshot?.backend_error}
           <span class="mascot-alert" aria-live="polite"
@@ -772,6 +799,56 @@
       {:else}
         <section class="panel preferences">
           <h2>Your mascot</h2>
+          <div class="mascot-choice">
+            <Mascot
+              timers={snapshot?.timers ?? []}
+              {now}
+              animations={snapshot?.settings.animations ?? true}
+              kind={snapshot?.settings.mascot ?? 'chicken'}
+            />
+            <div>
+              <label class="mascot-picker" for="settings-mascot"
+                ><span>Choose a mascot</span>
+                <select
+                  id="settings-mascot"
+                  value={snapshot?.settings.mascot ?? 'chicken'}
+                  disabled={busy || !snapshot}
+                  onchange={(event) =>
+                    selectMascot(event.currentTarget.value as MascotKind)}
+                >
+                  {#each mascots as mascot}<option value={mascot.id}
+                      >{mascot.name}</option
+                    >{/each}
+                </select>
+              </label>
+              <p>
+                {mascots.find(
+                  (mascot) =>
+                    mascot.id === (snapshot?.settings.mascot ?? 'chicken'),
+                )?.description}
+              </p>
+              <small>Chicken is the first available mascot.</small>
+            </div>
+          </div>
+          <dl class="mascot-states">
+            <div>
+              <dt>Waiting</dt>
+              <dd>Looks up and keeps you company.</dd>
+            </div>
+            <div>
+              <dt>Random action</dt>
+              <dd>Occasionally pecks or tries to fly.</dd>
+            </div>
+            <div>
+              <dt>Waiting for notification</dt>
+              <dd>Broods over one egg per pending notification.</dd>
+            </div>
+          </dl>
+          <p class="egg-legend">
+            Green: more than half the time remains. Yellow: halfway there. Red:
+            the final 20%. Cracked: ready to dismiss. Each egg has a number and
+            a tooltip with its notification and remaining time.
+          </p>
           <label class="setting-row"
             ><span
               ><strong>Gentle animations</strong><small

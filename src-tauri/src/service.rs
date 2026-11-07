@@ -213,12 +213,14 @@ mod tests {
                 settings: Settings {
                     animations: false,
                     notifications: false,
+                    ..Settings::default()
                 },
             })
             .unwrap();
         let restored = Service::load(path).unwrap().snapshot();
         assert_eq!(restored.timers.len(), 1);
         assert!(!restored.settings.animations);
+        assert_eq!(restored.settings.mascot, crate::core::MascotKind::Chicken);
         assert_eq!(restored.manual_mode, AwakeMode::Off);
     }
 

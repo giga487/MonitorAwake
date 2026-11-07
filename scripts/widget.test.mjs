@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { menuPosition, notificationSeconds } from '../src/lib/widget.ts';
+import {
+  mascotState,
+  notificationEggs,
+  idleActionPlan,
+} from '../src/lib/mascot.ts';
 
 test('popup stays on screen without changing the mascot anchor', () => {
   const workArea = {
@@ -53,4 +58,85 @@ test('notification cannot start with empty, zero, fractional or out-of-range val
   for (const value of [undefined, NaN, Infinity, -1, 0, 1.5, 101]) {
     assert.equal(notificationSeconds(value, 'minutes'), null);
   }
+});
+
+const timer = (id, overrides = {}) => ({
+  id,
+  name: `Notification ${id}`,
+  deadline_ms: 100_000,
+  duration_seconds: 100,
+  status: 'running',
+  keep_awake: false,
+  ...overrides,
+});
+
+test('mascot actions yield immediately to pending and ready notifications', () => {
+  assert.equal(mascotState([], 0, null), 'waiting');
+  assert.equal(mascotState([], 0, 'peck'), 'random-action');
+  assert.equal(
+    mascotState([timer('a')], 0, 'flutter'),
+    'waiting-for-notification',
+  );
+  assert.equal(
+    mascotState([timer('a')], 100_000, 'flutter'),
+    'notification-ready',
+  );
+  assert.equal(
+    mascotState([timer('a', { status: 'expired' })], 0, null),
+    'notification-ready',
+  );
+  assert.equal(
+    mascotState([timer('a', { status: 'cancelled' })], 0, null),
+    'waiting',
+  );
+});
+
+test('each egg changes from green to yellow to red with its own deadline', () => {
+  const timers = [timer('a')];
+  assert.equal(notificationEggs(timers, 0)[0].phase, 'green');
+  assert.equal(notificationEggs(timers, 49_999)[0].phase, 'green');
+  assert.equal(notificationEggs(timers, 50_000)[0].phase, 'yellow');
+  assert.equal(notificationEggs(timers, 79_999)[0].phase, 'yellow');
+  assert.equal(notificationEggs(timers, 80_000)[0].phase, 'red');
+  assert.equal(notificationEggs(timers, 100_000)[0].due, true);
+  const extended = timer('a', { deadline_ms: 200_000, duration_seconds: 200 });
+  assert.equal(notificationEggs([extended], 80_000)[0].phase, 'green');
+});
+
+test('expired eggs remain cracked until dismissed; cancellation removes the egg', () => {
+  const timers = [
+    timer('b', { deadline_ms: 200_000 }),
+    timer('a', { status: 'expired' }),
+    timer('c', { status: 'cancelled' }),
+    timer('d', { status: 'acknowledged' }),
+  ];
+  const eggs = notificationEggs(timers, 0);
+  assert.deepEqual(
+    eggs.map((egg) => egg.timer.id),
+    ['a', 'b'],
+  );
+  assert.equal(eggs[0].due, true);
+  assert.equal(eggs[0].phase, 'red');
+  assert.deepEqual(
+    timers.map((item) => item.id),
+    ['b', 'a', 'c', 'd'],
+  );
+  assert.equal(
+    notificationEggs(
+      Array.from({ length: 100 }, (_, index) => timer(String(index))),
+      0,
+    ).length,
+    100,
+  );
+});
+
+test('idle actions are bounded and include both pecking and fluttering', () => {
+  assert.deepEqual(
+    idleActionPlan(() => 0),
+    { action: 'peck', delay: 10_000, duration: 1800 },
+  );
+  assert.deepEqual(
+    idleActionPlan(() => 0.999),
+    { action: 'flutter', delay: 24_985, duration: 1400 },
+  );
 });

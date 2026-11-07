@@ -37,6 +37,15 @@ pub struct Timer {
 pub struct Settings {
     pub animations: bool,
     pub notifications: bool,
+    #[serde(default)]
+    pub mascot: MascotKind,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MascotKind {
+    #[default]
+    Chicken,
 }
 
 impl Default for Settings {
@@ -44,6 +53,7 @@ impl Default for Settings {
         Self {
             animations: true,
             notifications: true,
+            mascot: MascotKind::Chicken,
         }
     }
 }
@@ -449,6 +459,24 @@ mod tests {
                 .timers
                 .iter()
                 .all(|t| t.status == TimerStatus::Running)
+        );
+    }
+
+    #[test]
+    fn old_preferences_default_to_chicken_and_unknown_mascots_are_rejected() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"animations":false,"notifications":true}"#).unwrap();
+        assert_eq!(settings.mascot, MascotKind::Chicken);
+        assert!(!settings.animations);
+        assert_eq!(
+            serde_json::to_value(&settings).unwrap()["mascot"],
+            "chicken"
+        );
+        assert!(
+            serde_json::from_str::<Settings>(
+                r#"{"animations":true,"notifications":true,"mascot":"unknown"}"#
+            )
+            .is_err()
         );
     }
 
