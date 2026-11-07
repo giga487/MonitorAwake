@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const MAX_SECONDS: u64 = 7 * 24 * 60 * 60;
+pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -98,19 +98,17 @@ pub enum Action {
 impl Model {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema_version != 1 {
-            return Err(
-                "Versione del file dati non supportata. Il file è stato conservato.".into(),
-            );
+            return Err("Unsupported data file version. The file has been preserved.".into());
         }
         if self.timers.len() > MAX_TIMERS {
-            return Err("Il file dati contiene troppi timer.".into());
+            return Err("The data file contains too many timers.".into());
         }
         let mut ids = std::collections::HashSet::new();
         for timer in &self.timers {
             validate_name(&timer.name)?;
             validate_duration(timer.duration_seconds)?;
             if !ids.insert(timer.id) {
-                return Err("Il file dati contiene identificatori duplicati.".into());
+                return Err("The data file contains duplicate IDs.".into());
             }
         }
         Ok(())
@@ -127,11 +125,9 @@ impl Model {
         validate_name(name)?;
         validate_duration(seconds)?;
         if self.timers.len() >= MAX_TIMERS {
-            return Err("Hai raggiunto 100 timer. Svuota prima lo storico.".into());
+            return Err("You have reached 100 timers. Clear the history first.".into());
         }
-        let deadline_ms = now
-            .checked_add(seconds * 1000)
-            .ok_or("Scadenza non valida")?;
+        let deadline_ms = now.checked_add(seconds * 1000).ok_or("Invalid deadline")?;
         self.timers.push(Timer {
             id: Uuid::new_v4(),
             name: name.into(),
@@ -140,7 +136,7 @@ impl Model {
             status: TimerStatus::Running,
             keep_awake,
         });
-        Ok(format!("Va bene, timer «{name}» avviato."))
+        Ok(format!("Timer «{name}» started."))
     }
 
     pub fn expire(&mut self, now: u64) -> Vec<Timer> {
@@ -178,47 +174,47 @@ impl Model {
             Action::CancelTimer { id } => {
                 let t = self.timer_mut(*id)?;
                 if t.status != TimerStatus::Running || t.deadline_ms <= now {
-                    return Err("Questo timer non è più in corso.".into());
+                    return Err("This timer is no longer running.".into());
                 }
                 t.status = TimerStatus::Cancelled;
-                Ok(format!("Timer «{}» annullato.", t.name))
+                Ok(format!("Timer «{}» cancelled.", t.name))
             }
             Action::AcknowledgeTimer { id } => {
                 let t = self.timer_mut(*id)?;
                 if t.status != TimerStatus::Expired {
-                    return Err("Questo timer non è scaduto.".into());
+                    return Err("This timer has not expired.".into());
                 }
                 t.status = TimerStatus::Acknowledged;
-                Ok("Avviso chiuso.".into())
+                Ok("Alert dismissed.".into())
             }
             Action::ExtendTimer { id, seconds } => {
                 validate_duration(*seconds)?;
                 let t = self.timer_mut(*id)?;
                 if t.status != TimerStatus::Running || t.deadline_ms <= now {
-                    return Err("Il timer è già terminato. Creane uno nuovo.".into());
+                    return Err("This timer has already ended. Create a new one.".into());
                 }
                 let duration = t
                     .duration_seconds
                     .checked_add(*seconds)
-                    .ok_or("Durata eccessiva")?;
+                    .ok_or("Duration is too large")?;
                 validate_duration(duration)?;
                 t.deadline_ms = t
                     .deadline_ms
                     .checked_add(seconds * 1000)
-                    .ok_or("Scadenza non valida")?;
+                    .ok_or("Invalid deadline")?;
                 t.duration_seconds = duration;
-                Ok(format!("Tempo aggiunto al timer «{}».", t.name))
+                Ok(format!("Time added to timer «{}».", t.name))
             }
             Action::UpdateSettings { settings } => {
                 self.settings = settings.clone();
-                Ok("Preferenze salvate.".into())
+                Ok("Preferences saved.".into())
             }
             Action::ClearHistory => {
                 self.timers
                     .retain(|t| matches!(t.status, TimerStatus::Running | TimerStatus::Expired));
-                Ok("Storico svuotato. I timer e gli avvisi attivi sono conservati.".into())
+                Ok("History cleared. Active timers and alerts have been kept.".into())
             }
-            _ => Err("Questa azione deve essere gestita dal servizio.".into()),
+            _ => Err("This action must be handled by the service.".into()),
         }
     }
 
@@ -226,7 +222,7 @@ impl Model {
         self.timers
             .iter_mut()
             .find(|t| t.id == id)
-            .ok_or("Timer non trovato.".into())
+            .ok_or("Timer not found.".into())
     }
 
     fn resolve_running(&self, name: Option<&str>, now: u64) -> Result<&Timer, String> {
@@ -241,9 +237,9 @@ impl Model {
             .collect();
         match candidates.as_slice() {
             [timer] => Ok(timer),
-            [] => Err("Non trovo un timer attivo con questo nome.".into()),
+            [] => Err("No active timer found with this name.".into()),
             _ => Err(format!(
-                "Quale timer? Usa i pulsanti oppure specifica un nome univoco: {}.",
+                "Which timer? Use the buttons or specify a unique name: {}.",
                 candidates
                     .iter()
                     .map(|t| t.name.as_str())
@@ -255,20 +251,29 @@ impl Model {
 
     pub fn parse_command(&self, input: &str, now: u64) -> Result<ParsedCommand, String> {
         if input.len() > 300 {
-            return Err("Il comando è troppo lungo.".into());
+            return Err("The command is too long.".into());
         }
         let text = input
             .trim()
             .trim_end_matches(['?', '.', '!'])
             .to_lowercase();
-        if matches!(text.as_str(), "quanto manca" | "timer" | "lista timer") {
+        if matches!(
+            text.as_str(),
+            "how much time is left"
+                | "time left"
+                | "list timers"
+                | "timers"
+                | "quanto manca"
+                | "timer"
+                | "lista timer"
+        ) {
             let timers: Vec<_> = self
                 .timers
                 .iter()
                 .filter(|t| t.status == TimerStatus::Running)
                 .collect();
             let message = if timers.is_empty() {
-                "Non ci sono timer in corso.".into()
+                "There are no running timers.".into()
             } else {
                 timers
                     .iter()
@@ -281,9 +286,12 @@ impl Model {
             };
             return Ok(ParsedCommand::Reply(message));
         }
-        if let Some(duration) = text.strip_prefix("avvisami tra ") {
+        if let Some(duration) = text
+            .strip_prefix("remind me in ")
+            .or_else(|| text.strip_prefix("avvisami tra "))
+        {
             return Ok(ParsedCommand::Action(Action::AddTimer {
-                name: "Promemoria".into(),
+                name: "Reminder".into(),
                 seconds: parse_duration(duration)?,
                 keep_awake: false,
             }));
@@ -307,16 +315,30 @@ impl Model {
             }));
         }
         if let Some(rest) = text
-            .strip_prefix("annulla il timer")
+            .strip_prefix("cancel timer")
+            .or_else(|| text.strip_prefix("annulla il timer"))
             .or_else(|| text.strip_prefix("annulla timer"))
         {
+            if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+                return Err(command_help());
+            }
             let name = (!rest.trim().is_empty()).then_some(rest.trim());
             return Ok(ParsedCommand::Action(Action::CancelTimer {
                 id: self.resolve_running(name, now)?.id,
             }));
         }
-        if let Some(rest) = text.strip_prefix("aggiungi ") {
-            let (duration, name) = rest.split_once(" al timer").ok_or_else(command_help)?;
+        let extension = text
+            .strip_prefix("add ")
+            .map(|rest| (rest, " to timer"))
+            .or_else(|| {
+                text.strip_prefix("aggiungi ")
+                    .map(|rest| (rest, " al timer"))
+            });
+        if let Some((rest, separator)) = extension {
+            let (duration, name) = rest.split_once(separator).ok_or_else(command_help)?;
+            if !name.is_empty() && !name.starts_with(char::is_whitespace) {
+                return Err(command_help());
+            }
             let name = (!name.trim().is_empty()).then_some(name.trim());
             return Ok(ParsedCommand::Action(Action::ExtendTimer {
                 id: self.resolve_running(name, now)?.id,
@@ -333,12 +355,12 @@ pub enum ParsedCommand {
 }
 
 fn command_help() -> String {
-    "Prova: «timer tè 5 minuti», «avvisami tra 30 minuti», «quanto manca?», «aggiungi 5 minuti al timer tè» o «annulla il timer tè».".into()
+    "Try: «timer tea 5 minutes», «remind me in 30 minutes», «how much time is left?», «add 5 minutes to timer tea» or «cancel timer tea».".into()
 }
 
 fn validate_name(name: &str) -> Result<(), String> {
     if name.trim().is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
-        Err("Scegli un nome da 1 a 60 caratteri, senza caratteri di controllo.".into())
+        Err("Choose a name with 1 to 60 characters and no control characters.".into())
     } else {
         Ok(())
     }
@@ -346,7 +368,7 @@ fn validate_name(name: &str) -> Result<(), String> {
 
 fn validate_duration(seconds: u64) -> Result<(), String> {
     if !(1..=MAX_SECONDS).contains(&seconds) {
-        Err("La durata deve essere tra 1 secondo e 7 giorni.".into())
+        Err("Duration must be between 1 second and 100 days.".into())
     } else {
         Ok(())
     }
@@ -355,18 +377,21 @@ fn validate_duration(seconds: u64) -> Result<(), String> {
 fn parse_duration(input: &str) -> Result<u64, String> {
     let parts: Vec<_> = input.split_whitespace().collect();
     if parts.len() != 2 {
-        return Err("Scrivi una durata come «30 minuti» o «10 secondi».".into());
+        return Err("Enter a duration such as «30 minutes» or «10 seconds».".into());
     }
     let amount = parts[0]
         .parse::<u64>()
-        .map_err(|_| "La durata deve essere un numero intero positivo.")?;
+        .map_err(|_| "Duration must be a positive whole number.")?;
     let multiplier = match parts[1] {
-        "secondo" | "secondi" | "s" => 1,
-        "minuto" | "minuti" | "min" => 60,
-        "ora" | "ore" | "h" => 3600,
-        _ => return Err("Usa secondi, minuti oppure ore.".into()),
+        "second" | "seconds" | "sec" | "secondo" | "secondi" | "s" => 1,
+        "minute" | "minutes" | "minuto" | "minuti" | "min" => 60,
+        "hour" | "hours" | "ora" | "ore" | "h" => 3600,
+        "day" | "days" | "giorno" | "giorni" | "d" => 86400,
+        _ => return Err("Use seconds, minutes, hours or days.".into()),
     };
-    let seconds = amount.checked_mul(multiplier).ok_or("Durata eccessiva")?;
+    let seconds = amount
+        .checked_mul(multiplier)
+        .ok_or("Duration is too large")?;
     validate_duration(seconds)?;
     Ok(seconds)
 }
@@ -417,7 +442,7 @@ mod tests {
             model
                 .parse_command("annulla il timer", 0)
                 .unwrap_err_text()
-                .contains("Quale timer")
+                .contains("Which timer")
         );
         assert!(
             model
@@ -425,6 +450,114 @@ mod tests {
                 .iter()
                 .all(|t| t.status == TimerStatus::Running)
         );
+    }
+
+    #[test]
+    fn supports_a_hundred_days_without_changing_expiry_rules() {
+        let mut model = Model::default();
+        model
+            .add("Long reminder", MAX_SECONDS, false, 1000)
+            .unwrap();
+        assert!(model.add("Too long", MAX_SECONDS + 1, false, 1000).is_err());
+        let json = serde_json::to_string(&model).unwrap();
+        let mut restored: Model = serde_json::from_str(&json).unwrap();
+        restored.validate().unwrap();
+        let deadline = 1000 + MAX_SECONDS * 1000;
+        assert!(restored.expire(deadline - 1).is_empty());
+        assert_eq!(restored.expire(deadline).len(), 1);
+        assert!(restored.expire(deadline + 1).is_empty());
+    }
+
+    #[test]
+    fn parses_english_timer_commands_and_duration_units() {
+        let model = Model::default();
+        for (text, expected_name, expected_seconds) in [
+            ("remind me in 30 minutes", "Reminder", 1800),
+            ("Timer tea 5 minutes!", "tea", 300),
+            ("timer 1 second", "Timer", 1),
+            ("timer short break 10 seconds", "short break", 10),
+            ("timer lunch 1 minute", "lunch", 60),
+            ("timer work 1 hour", "work", 3600),
+            ("timer work 2 hours", "work", 7200),
+            ("timer holiday 100 days", "holiday", 8_640_000),
+        ] {
+            match model.parse_command(text, 0).unwrap() {
+                ParsedCommand::Action(Action::AddTimer {
+                    name,
+                    seconds,
+                    keep_awake,
+                }) => {
+                    assert_eq!(name, expected_name, "{text}");
+                    assert_eq!(seconds, expected_seconds, "{text}");
+                    assert!(!keep_awake);
+                }
+                _ => panic!("expected an add-timer action for {text}"),
+            }
+        }
+        for text in [
+            "timer tea 0 minutes",
+            "timer tea -5 minutes",
+            "timer tea 18446744073709551615 hours",
+            "timer tea 2401 hours",
+            "timer tea 101 days",
+            "remind me in five minutes",
+        ] {
+            assert!(model.parse_command(text, 0).is_err(), "{text}");
+        }
+    }
+
+    #[test]
+    fn english_commands_resolve_targets_and_preserve_timer_rules() {
+        let mut model = Model::default();
+        model.add("Tea break", 60, false, 0).unwrap();
+        model.add("Lunch", 120, false, 0).unwrap();
+        let id = model.timers[0].id;
+        for text in ["cancel timer", "add 5 minutes to timer"] {
+            assert!(
+                model
+                    .parse_command(text, 0)
+                    .unwrap_err_text()
+                    .contains("Which timer")
+            );
+        }
+        for text in ["cancel timerfoo", "add 5 minutes to timerfoo"] {
+            assert!(
+                model
+                    .parse_command(text, 0)
+                    .unwrap_err_text()
+                    .starts_with("Try:")
+            );
+        }
+        for text in [
+            "how much time is left?",
+            "time left",
+            "list timers",
+            "timers",
+        ] {
+            match model.parse_command(text, 0).unwrap() {
+                ParsedCommand::Reply(message) => assert!(message.contains("Tea break: 1 min 0 s")),
+                _ => panic!("expected a timer list"),
+            }
+        }
+        match model
+            .parse_command("add 5 minutes to timer tea break", 0)
+            .unwrap()
+        {
+            ParsedCommand::Action(action @ Action::ExtendTimer { .. }) => {
+                model.apply(&action, 0).unwrap();
+                assert_eq!(model.timers[0].deadline_ms, 360_000);
+            }
+            _ => panic!("expected an extension"),
+        }
+        match model.parse_command("cancel timer TEA BREAK", 0).unwrap() {
+            ParsedCommand::Action(action @ Action::CancelTimer { id: target }) => {
+                assert_eq!(target, id);
+                assert!(model.apply(&action, 0).unwrap().contains("cancelled"));
+                assert_eq!(model.timers[0].status, TimerStatus::Cancelled);
+            }
+            _ => panic!("expected cancellation"),
+        }
+        assert_eq!(model.timers[1].status, TimerStatus::Running);
     }
 
     #[test]

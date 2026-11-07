@@ -33,13 +33,13 @@ pub fn data_directory() -> Result<PathBuf, String> {
     }
     dirs::data_local_dir()
         .map(|p| p.join("MonitorAwake"))
-        .ok_or("Cartella dati utente non disponibile.".into())
+        .ok_or("User data directory unavailable.".into())
 }
 
 pub type Notify = Box<dyn Fn(&Timer) -> Result<(), String> + Send + 'static>;
 
 pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, String> {
-    fs::create_dir_all(&directory).map_err(|e| format!("Cartella dati: {e}"))?;
+    fs::create_dir_all(&directory).map_err(|e| format!("Data directory: {e}"))?;
     let lock = OpenOptions::new()
         .read(true)
         .write(true)
@@ -48,11 +48,11 @@ pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, Str
         .open(directory.join("instance.lock"))
         .map_err(|e| e.to_string())?;
     lock.try_lock_exclusive()
-        .map_err(|_| "MonitorAwake è già in esecuzione con questa cartella dati.".to_string())?;
+        .map_err(|_| "MonitorAwake is already running with this data directory.".to_string())?;
     let service = Arc::new(Mutex::new(Service::load(directory.join("state.json"))?));
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
         .await
-        .map_err(|e| format!("Server locale: {e}"))?;
+        .map_err(|e| format!("Local server: {e}"))?;
     let address = listener.local_addr().map_err(|e| e.to_string())?;
     let token = uuid::Uuid::new_v4().simple().to_string();
     let config_url = format!("http://{address}/#token={token}");
@@ -71,7 +71,7 @@ pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, Str
             .await
             && let Ok(mut service) = server_service.lock()
         {
-            service.backend_error = Some(format!("Server HTTP interrotto: {error}"));
+            service.backend_error = Some(format!("HTTP server stopped: {error}"));
         }
     });
     let stopped = Arc::new(AtomicBool::new(false));
@@ -161,7 +161,7 @@ mod desktop {
         Ok(runtime
             .service
             .lock()
-            .map_err(|_| "Motore non disponibile")?
+            .map_err(|_| "Core unavailable")?
             .snapshot())
     }
 
@@ -173,7 +173,7 @@ mod desktop {
         runtime
             .service
             .lock()
-            .map_err(|_| "Motore non disponibile")?
+            .map_err(|_| "Core unavailable")?
             .dispatch(action)
     }
 
@@ -209,6 +209,19 @@ mod desktop {
                 open_configuration,
                 quit
             ])
+            .on_window_event(|window, event| {
+                if window.label() == "controls"
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                {
+                    // Keep the popup available for the next right-click, including after Alt+F4.
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else if window.label() == "mascot"
+                    && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+                {
+                    window.app_handle().exit(0);
+                }
+            })
             .setup(|app| {
                 let handle = app.handle().clone();
                 let directory = data_directory().map_err(std::io::Error::other)?;
@@ -218,8 +231,8 @@ mod desktop {
                         handle
                             .notification()
                             .builder()
-                            .title("Tempo scaduto")
-                            .body(format!("Il timer «{}» è terminato.", timer.name))
+                            .title("Time's up")
+                            .body(format!("Timer «{}» has finished.", timer.name))
                             .show()
                             .map_err(|e| e.to_string())
                     }),

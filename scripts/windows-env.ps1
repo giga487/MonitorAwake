@@ -12,7 +12,9 @@ $msvcBin = Join-Path $msvc.FullName 'bin\Hostx64\x64'
 $msvcLib = Join-Path $msvc.FullName 'lib\x64'
 $msvcInclude = Join-Path $msvc.FullName 'include'
 
-$installedSdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10'
+# The SDK may be installed outside Program Files: the registry holds the real root.
+$installedSdk = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows Kits\Installed Roots' -Name KitsRoot10 -ErrorAction SilentlyContinue).KitsRoot10
+if (!$installedSdk) { $installedSdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10' }
 $sdkVersion = Get-ChildItem -LiteralPath (Join-Path $installedSdk 'Lib') -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Where-Object {
     Test-Path -LiteralPath (Join-Path $_.FullName 'um\x64\kernel32.lib')
 } | Select-Object -First 1

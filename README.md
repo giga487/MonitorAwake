@@ -2,7 +2,13 @@
 
 Un piccolo assistente desktop in Rust: mascotte Tauri, timer e configurazione HTTP locale in Svelte. Tutto funziona sul computer dell'utente, senza account o servizi cloud.
 
+L'interfaccia, i messaggi e le notifiche dell'app sono in inglese. Esempi: `timer tea 5 minutes`, `remind me in 30 minutes`, `how much time is left?`, `add 5 minutes to timer tea`, `cancel timer tea`. I comandi italiani restano compatibili; i nomi dei timer salvati non vengono tradotti.
+
 ## Prima versione
+
+Sul desktop rimane solo la gallina, inizialmente posizionata sopra la barra delle applicazioni. Trascinala con il tasto sinistro; il tasto destro apre il pannello con comandi, timer, configurazione, minimizzazione e uscita. Il pannello si chiude con Esc, con un clic sulla gallina o all'esterno, oppure passando a un'altra applicazione. Da tastiera: Tab per raggiungere la gallina, Invio/Spazio o Maiusc+F10 per aprire il pannello. Le scadenze e gli errori mostrano un piccolo avviso sulla mascotte anche con il pannello chiuso. Il posizionamento automatico dipende dalle funzionalita del desktop, in particolare su Wayland.
+
+Il pannello usa una finestra separata: aprirlo e chiuderlo non sposta o ridimensiona la gallina. Per creare un avviso seleziona **Notification**, scrivi il testo e premi **Next**; scegli quindi una quantita da 0 a 100 e **Seconds**, **Minutes**, **Hours** o **Days**. **Start notification** richiede una quantita intera maggiore di zero. La durata massima e 100 giorni. Lo stesso percorso e disponibile nella configurazione web; i comandi testuali restano nella voce **Text command**. Chiudere il pannello con Alt+F4 lo nasconde; chiudere la finestra della gallina termina l'app.
 
 - Mascotte trasparente, trascinabile, sempre in primo piano, con comando testuale, minimizzazione e uscita esplicita.
 - Pagina HTTP con timer, storico, mantenimento in attività e preferenze.
@@ -39,11 +45,13 @@ Lo script richiede comunque un compilatore MSVC x64 già installato. La prima bu
 
 ## Generare l'app Windows
 
+Lo script prepara l'ambiente, installa le dipendenze frontend se assenti e genera eseguibile e installer:
+
 ```powershell
-. .\scripts\windows-env.ps1
-npm.cmd ci
-npm.cmd run desktop:build -- --bundles nsis
+.\scripts\build-windows.ps1
 ```
+
+Puoi eseguirlo anche da un'altra cartella usando il percorso completo. Se manca il Windows SDK, aggiungi `-BootstrapSdk` per scaricare i pacchetti ufficiali Microsoft nella cache locale. Lo script si ferma in caso di errore e non avvia l'app o il browser.
 
 Risultati nella cartella `target/release`: eseguibile `monitorawake.exe` e installer in `bundle/nsis/`. I pacchetti locali non sono firmati. L'installer può predisporre WebView2 se assente; l'opzione predefinita può richiedere rete durante l'installazione del runtime. Dopo l'installazione, timer e configurazione sono offline.
 
@@ -90,6 +98,7 @@ Stampa il link privato nel terminale e non apre browser. In questa modalità gli
 
 ```sh
 npm run check
+npm run test:widget
 npm run build
 cargo fmt --all -- --check
 cargo test --workspace --no-default-features

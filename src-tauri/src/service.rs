@@ -54,11 +54,11 @@ impl Service {
     pub fn load(path: PathBuf) -> Result<Self, String> {
         let model = if path.exists() {
             if fs::metadata(&path).map_err(|e| e.to_string())?.len() > 1_048_576 {
-                return Err("File dati troppo grande. Nessun dato è stato modificato.".into());
+                return Err("The data file is too large. No data has been changed.".into());
             }
-            let bytes = fs::read(&path).map_err(|e| format!("Lettura dati: {e}"))?;
+            let bytes = fs::read(&path).map_err(|e| format!("Reading data: {e}"))?;
             let model: Model = serde_json::from_slice(&bytes)
-                .map_err(|e| format!("File dati non valido, conservato: {e}"))?;
+                .map_err(|e| format!("Invalid data file, preserved: {e}"))?;
             model.validate()?;
             model
         } else {
@@ -73,7 +73,7 @@ impl Service {
             capabilities: Capabilities {
                 system: false,
                 display: false,
-                backend: "Inizializzazione".into(),
+                backend: "Initializing".into(),
             },
             backend_error: None,
             notification_error: None,
@@ -81,17 +81,17 @@ impl Service {
     }
 
     fn save(&self, model: &Model) -> Result<(), String> {
-        let dir = self.path.parent().ok_or("Cartella dati non valida")?;
+        let dir = self.path.parent().ok_or("Invalid data directory")?;
         let mut temporary =
-            tempfile::NamedTempFile::new_in(dir).map_err(|e| format!("Salvataggio: {e}"))?;
+            tempfile::NamedTempFile::new_in(dir).map_err(|e| format!("Saving: {e}"))?;
         let data = serde_json::to_vec_pretty(model).map_err(|e| e.to_string())?;
         temporary
             .write_all(&data)
-            .map_err(|e| format!("Salvataggio: {e}"))?;
+            .map_err(|e| format!("Saving: {e}"))?;
         temporary.as_file().sync_all().map_err(|e| e.to_string())?;
         temporary
             .persist(&self.path)
-            .map_err(|e| format!("Sostituzione file dati: {e}"))?;
+            .map_err(|e| format!("Replacing data file: {e}"))?;
         Ok(())
     }
 
@@ -131,7 +131,7 @@ impl Service {
         let message = if let Action::SetAwake { mode } = action {
             self.check_mode(mode)?;
             self.manual_mode = mode;
-            "Richiesta aggiornata; attendo conferma dal sistema.".into()
+            "Request updated; waiting for system confirmation.".into()
         } else {
             if matches!(
                 action,
@@ -158,10 +158,10 @@ impl Service {
     fn check_mode(&self, mode: AwakeMode) -> Result<(), String> {
         match mode {
             AwakeMode::System if !self.capabilities.system => {
-                Err("Mantenimento del sistema non disponibile.".into())
+                Err("Keeping the system awake is unavailable.".into())
             }
             AwakeMode::Display if !self.capabilities.display => {
-                Err("Mantenimento del display non disponibile su questa piattaforma.".into())
+                Err("Keeping the display on is unavailable on this platform.".into())
             }
             _ => Ok(()),
         }

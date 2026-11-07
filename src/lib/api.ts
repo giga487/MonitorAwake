@@ -61,8 +61,8 @@ async function request<T>(path: string, action?: Action): Promise<T> {
   if (!response.ok) {
     const result = await response
       .json()
-      .catch(() => ({ error: 'Richiesta non valida.' }));
-    throw new Error(result.error ?? 'Il server non ha accettato la richiesta.');
+      .catch(() => ({ error: 'Invalid request.' }));
+    throw new Error(result.error ?? 'The server did not accept the request.');
   }
   return response.json();
 }
@@ -85,17 +85,17 @@ export const modes: { value: AwakeMode; label: string; description: string }[] =
   [
     {
       value: 'off',
-      label: 'Automatico',
-      description: 'Segui le impostazioni del sistema',
+      label: 'Automatic',
+      description: 'Follow system power settings',
     },
     {
       value: 'system',
-      label: 'Sistema sveglio',
-      description: 'Lo schermo può spegnersi',
+      label: 'System awake',
+      description: 'The display can turn off',
     },
     {
       value: 'display',
-      label: 'Anche lo schermo',
-      description: 'Mantieni visibile quello che fai',
+      label: 'Keep display on too',
+      description: 'Keep your work on screen',
     },
   ];
