@@ -38,6 +38,16 @@ fn migrate_v4_to_v5(mut model: Model) -> Result<Model, String> {
     Ok(model)
 }
 
+fn migrate_v5_to_v6(mut model: Model) -> Result<Model, String> {
+    if model.schema_version != 5 || model.settings.mascot == MascotKind::Elf {
+        return Err(
+            "Invalid schema 5 mascot settings. The original file has been preserved.".into(),
+        );
+    }
+    model.schema_version = 6;
+    Ok(model)
+}
+
 pub fn save(path: &Path, model: &Model) -> Result<(), String> {
     model.validate()?;
     let parent = path.parent().ok_or("Invalid data directory")?;
@@ -69,16 +79,27 @@ pub fn load(path: &Path) -> Result<Model, String> {
         1 => {
             let legacy: LegacyV1 = serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 1; original preserved: {e}"))?;
             if legacy.schema_version != 1 { return Err("Invalid legacy schema.".into()); }
-            migrate_v3_to_v4(migrate_v2_to_v3(Model { schema_version: 2, timers: legacy.timers, settings: legacy.settings, notes: vec![] })?)?
+            if legacy.settings.mascot == MascotKind::Elf {
+                // The elf prototype wrote schema 1 before the two mascot catalogs merged.
+                Model { timers: legacy.timers, settings: legacy.settings, ..Model::default() }
+            } else {
+                migrate_v3_to_v4(migrate_v2_to_v3(Model { schema_version: 2, timers: legacy.timers, settings: legacy.settings, notes: vec![] })?)?
+            }
         }
         2 => migrate_v3_to_v4(migrate_v2_to_v3(serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 2; original preserved: {e}"))?)?)?,
         3 => migrate_v3_to_v4(serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 3; original preserved: {e}"))?)?,
         4 => serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 4; original preserved: {e}"))?,
+        5 => serde_json::from_value(value).map_err(|e| format!("Cannot migrate schema 5; original preserved: {e}"))?,
         v if v == u64::from(SCHEMA_VERSION) => serde_json::from_value(value).map_err(|e| format!("Invalid data file, preserved: {e}"))?,
         _ => return Err("Unsupported data schema. Use a newer compatible version of MonitorAwake. The original file has been preserved.".into()),
     };
     let model = if model.schema_version == 4 {
         migrate_v4_to_v5(model)?
+    } else {
+        model
+    };
+    let model = if model.schema_version == 5 {
+        migrate_v5_to_v6(model)?
     } else {
         model
     };
@@ -271,6 +292,35 @@ mod tests {
             settings.speech_min_minutes = min;
             settings.speech_max_minutes = max;
             assert!(settings.validate().is_ok());
+        }
+    }
+
+    #[test]
+    fn migrates_elf_prototype_and_released_v5_profiles() {
+        for (version, mascot) in [(1, MascotKind::Elf), (5, MascotKind::EmberWyvern)] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("state.json");
+            let mut profile = serde_json::json!({
+                "schema_version": version, "timers": [],
+                "settings": { "animations": false, "notifications": true, "mascot": mascot }
+            });
+            if version == 5 {
+                profile["notes"] = serde_json::json!([]);
+            }
+            let original = serde_json::to_vec(&profile).unwrap();
+            fs::write(&path, &original).unwrap();
+            let migrated = load(&path).unwrap();
+            assert_eq!(migrated.schema_version, SCHEMA_VERSION);
+            assert_eq!(migrated.settings.mascot, mascot);
+            assert!(!migrated.settings.animations);
+            assert_eq!(load(&path).unwrap().settings.mascot, mascot);
+            let backups: Vec<_> = fs::read_dir(dir.path())
+                .unwrap()
+                .map(|entry| entry.unwrap().path())
+                .filter(|p| p != &path)
+                .collect();
+            assert_eq!(backups.len(), 1);
+            assert_eq!(fs::read(&backups[0]).unwrap(), original);
         }
     }
 

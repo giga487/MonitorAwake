@@ -89,7 +89,7 @@ Stampa il link privato nel terminale e non apre browser. In questa modalità gli
 
 ## Dati e comportamento
 
-Il formato attuale usa `schema_version: 5` per l'intero archivio. Le migrazioni dalle versioni 1, 2, 3 e 4 creano un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
+Il formato attuale usa `schema_version: 6` per l'intero archivio. Le migrazioni dalle versioni da 1 a 5 creano un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
 
 - Windows: `%LOCALAPPDATA%\MonitorAwake\state.json`.
 - Linux: directory dati locale dell'utente (`$XDG_DATA_HOME/MonitorAwake`, normalmente `~/.local/share/MonitorAwake`).

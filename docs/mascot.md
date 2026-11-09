@@ -31,7 +31,7 @@ Use case: stylized-concept. Asset type: one production desktop companion mascot 
 
 ## Elfo dei boschi
 
-La seconda mascotte è uno sprite trasparente in `public/elf.png`, generato con ImageGen. Si sceglie in **Preferenze → La tua mascotte**. Nel widget l’elfo si inclina come una sentinella e fa un saltello, con una pausa tra i due gesti.
+L’elfo è uno sprite trasparente in `public/elf.png`, generato con ImageGen. Si sceglie in **Preferences → Your mascot → Woodland elf**. Nel widget l’elfo si inclina come una sentinella e fa un saltello, con una pausa tra i due gesti.
 
 ### Prompt della variante bionda
 

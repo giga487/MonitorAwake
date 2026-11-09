@@ -30,7 +30,6 @@
     dispatch,
     remaining,
     modes,
-    mascots,
     type Snapshot,
     type Action,
   } from './lib/api';
@@ -722,16 +721,11 @@
           ><Icon name="settings" /> Preferences</button
         >
       </nav>
-      <div
-        class="sidebar-companion"
-        class:still={snapshot && !snapshot.settings.animations}
-      >
-        <img
-          class="mascot"
-          src={mascot.src}
-          width="150"
-          height="150"
-          alt="Your mascot"
+      <div class="sidebar-companion">
+        <Mascot
+          {now}
+          animations={snapshot?.settings.animations ?? true}
+          kind={snapshot?.settings.mascot ?? 'chicken'}
         />
         <strong>You do your thing.</strong>
         <p>I'll keep track of time.</p>
@@ -996,7 +990,11 @@
             </div>
             <div>
               <dt>Random action</dt>
-              <dd>Occasionally pecks or tries to fly.</dd>
+              <dd>
+                {snapshot?.settings.mascot === 'elf'
+                  ? 'Looks around or takes a little hop.'
+                  : 'Occasionally pecks or tries to fly.'}
+              </dd>
             </div>
             <div>
               <dt>Waiting for notification</dt>

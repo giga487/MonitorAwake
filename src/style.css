@@ -194,7 +194,7 @@ a {
   text-align: center;
   padding: 50px 0 32px;
 }
-.sidebar-companion img {
+.sidebar-companion .mascot-stage {
   display: block;
   margin: 0 auto 10px;
 }
@@ -607,13 +607,6 @@ a {
   border-radius: 9px;
   padding: 13px 11px;
   text-align: left;
-}
-.mascot-options {
-  grid-template-columns: repeat(2, 1fr);
-}
-.mascot-options img {
-  object-fit: contain;
-  image-rendering: pixelated;
 }
 .mode-options button.selected {
   background: #f2f6eb;

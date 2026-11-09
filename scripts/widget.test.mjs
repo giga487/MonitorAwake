@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { createSaveQueue } from '../src/lib/save-queue.ts';
 import { menuPosition, notificationSeconds } from '../src/lib/widget.ts';
 import {
@@ -191,23 +192,19 @@ test('recurring speech does not immediately repeat phrases', () => {
   );
 });
 
-test('mascot catalog provides all sprite atlases with the intended rendering', () => {
+test('mascot catalog loads the four sprites with the correct layout', () => {
   assert.deepEqual(
     mascots.map((mascot) => mascot.id),
-    ['chicken', 'frost_gryphon', 'ember_wyvern'],
+    ['chicken', 'frost_gryphon', 'ember_wyvern', 'elf'],
   );
-  assert.equal(
-    mascots.find((mascot) => mascot.id === 'ember_wyvern').rendering,
-    'pixelated',
-  );
-  assert.equal(
-    mascots.find((mascot) => mascot.id === 'frost_gryphon').rendering,
-    'pixelated',
-  );
-  assert.equal(
-    mascots.find((mascot) => mascot.id === 'chicken').rendering,
-    'pixelated',
-  );
+  for (const mascot of mascots) {
+    assert.equal(mascot.rendering, 'pixelated');
+    assert.equal(mascot.layout, mascot.id === 'elf' ? 'single' : 'atlas');
+    assert.ok(
+      existsSync(new URL(`../public${mascot.src}`, import.meta.url)),
+      mascot.src,
+    );
+  }
 });
 
 test('autosave, Close and Quit share a drain and save edits made during a write', async () => {

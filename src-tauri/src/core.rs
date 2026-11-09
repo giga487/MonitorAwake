@@ -2,7 +2,7 @@ use crate::notes::{Note, NoteBounds, NoteColor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 6;
 
 pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
@@ -35,19 +35,9 @@ pub struct Timer {
     pub keep_awake: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum Mascot {
-    #[default]
-    Chicken,
-    Elf,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
-    #[serde(default)]
-    pub mascot: Mascot,
     pub animations: bool,
     pub notifications: bool,
     #[serde(default)]
@@ -112,12 +102,12 @@ pub enum MascotKind {
     Chicken,
     FrostGryphon,
     EmberWyvern,
+    Elf,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            mascot: Mascot::default(),
             animations: true,
             notifications: true,
             mascot: MascotKind::Chicken,

@@ -157,7 +157,8 @@
     class="mascot-sprite"
     class:ready={activity === 'notification-ready'}
     data-pose={pose}
-    style:background-image={`url('${character.atlas}')`}
+    data-layout={character.layout}
+    style:background-image={`url('${character.src}')`}
     style:image-rendering={character.rendering}
     role="img"
     aria-label={`${character.name}: ${stateLabel}`}
@@ -276,6 +277,35 @@
   }
   .mascot-sprite.ready {
     animation: ready 1.5s ease-in-out infinite;
+  }
+  .mascot-sprite[data-layout='single'] {
+    background-size: contain;
+    background-position: center;
+  }
+  :where(.mascot-stage:not(.motionless))
+    .mascot-sprite[data-layout='single'][data-pose='peck'] {
+    animation: sentry 1.8s ease-in-out;
+  }
+  :where(.mascot-stage:not(.motionless))
+    .mascot-sprite[data-layout='single'][data-pose='flutter'] {
+    animation: hop 1.4s ease-in-out;
+  }
+  @keyframes sentry {
+    25% {
+      transform: rotate(-5deg);
+    }
+    70% {
+      transform: rotate(4deg);
+    }
+  }
+  @keyframes hop {
+    35%,
+    65% {
+      transform: scale(1.03, 0.96);
+    }
+    50% {
+      transform: translateY(-7px);
+    }
   }
   .egg-nest {
     position: absolute;

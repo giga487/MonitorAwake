@@ -1,6 +1,6 @@
 import type { Timer } from './api';
 
-export type MascotKind = 'chicken' | 'frost_gryphon' | 'ember_wyvern';
+export type MascotKind = (typeof mascots)[number]['id'];
 export type IdleAction = 'peck' | 'flutter' | 'speak';
 export type MascotState =
   | 'waiting'
@@ -9,17 +9,12 @@ export type MascotState =
   | 'notification-ready';
 export type EggPhase = 'green' | 'yellow' | 'red';
 
-export const mascots: {
-  id: MascotKind;
-  name: string;
-  atlas: string;
-  rendering: 'pixelated' | 'auto';
-  description: string;
-}[] = [
+export const mascots = [
   {
     id: 'chicken',
     name: 'Chicken',
-    atlas: '/chicken-actions.png',
+    src: '/chicken-actions.png',
+    layout: 'atlas',
     rendering: 'pixelated',
     description:
       'A curious little hen. Pecks, flutters and keeps your notifications warm.',
@@ -27,7 +22,8 @@ export const mascots: {
   {
     id: 'frost_gryphon',
     name: 'Frost gryphon',
-    atlas: '/frost-gryphon-pixel-actions.png',
+    src: '/frost-gryphon-pixel-actions.png',
+    layout: 'atlas',
     rendering: 'pixelated',
     description:
       'A little guardian from snowy peaks. Curious, brave and always watching over your reminders.',
@@ -35,12 +31,22 @@ export const mascots: {
   {
     id: 'ember_wyvern',
     name: 'Ember wyvern',
-    atlas: '/ember-wyvern-pixel-actions.png',
+    src: '/ember-wyvern-pixel-actions.png',
+    layout: 'atlas',
     rendering: 'pixelated',
     description:
       'A spirited little wind rider with crimson wings, iron details and a warm heart. Your reminders are under its protection.',
   },
-];
+  {
+    id: 'elf',
+    name: 'Woodland elf',
+    src: '/elf.png',
+    layout: 'single',
+    rendering: 'pixelated',
+    description:
+      'A woodland lookout with a leaf shield. Leans from side to side and hops between reminders.',
+  },
+] as const;
 
 export function mascotState(
   timers: readonly Timer[],

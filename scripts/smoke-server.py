@@ -85,10 +85,12 @@ def main():
     (profile / 'state.json').write_bytes(legacy)
     process, base, token = start(binary, profile)
     try:
-        assert request(base, token)[1]['schema_version'] == 5
+        assert request(base, token)[1]['schema_version'] == 6
         backups = list(profile.glob('state.json.backup-v1-*.json'))
         assert len(backups) == 1 and backups[0].read_bytes() == legacy
         assert request(base, '', '/')[0] == 200
+        code, elf_sprite = request(base, '', '/elf.png')
+        assert code == 200 and elf_sprite.startswith(b'\x89PNG\r\n\x1a\n')
         assert request(base, '')[0] == 401
         assert request(base, token, extra={'Host': 'untrusted.example'})[0] == 403
         assert request(base, token, extra={'Origin': 'https://untrusted.example'})[0] == 403
@@ -118,7 +120,9 @@ def main():
         for minimum, maximum, expected in [(0, 10, 400), (10, 5, 400), (1, 1441, 400), (1.5, 10, 422)]:
             invalid = {**settings, 'speech_min_minutes': minimum, 'speech_max_minutes': maximum}
             assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': invalid})[0] == expected
-        assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': settings})[0] == 200
+        for mascot in ('chicken', 'frost_gryphon', 'ember_wyvern', 'elf'):
+            code, result = request(base, token, '/api/action', {'type': 'update_settings', 'settings': {**settings, 'mascot': mascot}})
+            assert code == 200 and result['state']['settings']['mascot'] == mascot
         if expired['capabilities']['system']:
             assert request(base, token, '/api/action', {'type': 'set_awake', 'mode': 'system'})[0] == 200
             until(base, token, lambda s: s['applied_mode'] == 'system')
@@ -138,6 +142,7 @@ def main():
         assert code == 200 and restored['timers'][0]['id'] == timer_id
         assert restored['timers'][0]['status'] == 'acknowledged'
         assert restored['manual_mode'] == 'off'
+        assert restored['settings']['mascot'] == 'elf'
         assert restored['notes'][0]['id'] == note_id and restored['notes'][0]['body'] == body
         assert restored['notes'][0]['visible'] is False and restored['notes'][0]['pinned'] is True
         assert restored['notes'][0]['color'] == 'blue' and restored['settings']['phrases'] == settings['phrases']
