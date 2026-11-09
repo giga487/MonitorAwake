@@ -39,8 +39,8 @@ def start(binary, profile):
                 if process.poll() is not None:
                     raise RuntimeError(process.stderr.read())
                 continue
-            if line.startswith('Configurazione: '):
-                url = urllib.parse.urlsplit(line.removeprefix('Configurazione: ').strip())
+            if line.startswith('Settings: '):
+                url = urllib.parse.urlsplit(line.removeprefix('Settings: ').strip())
                 token = urllib.parse.parse_qs(url.fragment)['token'][0]
                 return process, f'{url.scheme}://{url.netloc}', token
         raise RuntimeError('Server startup timed out')
@@ -81,8 +81,13 @@ def until(base, token, predicate):
 def main():
     binary = Path(sys.argv[1]).resolve(strict=True)
     profile = Path(tempfile.mkdtemp(prefix='monitorawake-smoke-'))
+    legacy = json.dumps({'schema_version': 1, 'timers': [], 'settings': {'animations': False, 'notifications': False}}).encode()
+    (profile / 'state.json').write_bytes(legacy)
     process, base, token = start(binary, profile)
     try:
+        assert request(base, token)[1]['schema_version'] == 5
+        backups = list(profile.glob('state.json.backup-v1-*.json'))
+        assert len(backups) == 1 and backups[0].read_bytes() == legacy
         assert request(base, '', '/')[0] == 200
         assert request(base, '')[0] == 401
         assert request(base, token, extra={'Host': 'untrusted.example'})[0] == 403
@@ -96,6 +101,24 @@ def main():
         timer_id = expired['timers'][0]['id']
         ack = {'type': 'acknowledge_timer', 'id': timer_id}
         assert request(base, token, '/api/action', ack)[0] == 200
+        code, created = request(base, token, '/api/action', {'type': 'create_note'})
+        assert code == 200
+        note_id = created['state']['notes'][0]['id']
+        body = '\u03b1' * 9000  # UTF-8 and JSON escaping exceed the old 16 KiB action limit.
+        update = {'type': 'update_note', 'id': note_id, 'expected_revision': 0, 'title': 'Persistent note', 'body': body}
+        assert request(base, token, '/api/action', update)[0] == 200
+        assert request(base, token, '/api/action', update)[0] == 400  # Stale editor cannot overwrite.
+        assert request(base, token, '/api/action', {**update, 'expected_revision': 1, 'body': 'x' * 10001})[0] == 400
+        assert request(base, token, '/api/action', {'type': 'set_note_visible', 'id': note_id, 'visible': False})[0] == 200
+        assert request(base, token, '/api/action', {'type': 'set_note_appearance', 'id': note_id, 'color': 'blue', 'pinned': True})[0] == 200
+        assert request(base, token, '/api/action', {'type': 'set_note_reminder', 'id': note_id, 'seconds': 60})[0] == 200
+        _, current = request(base, token)
+        assert current['settings']['speech_min_minutes'] == 5 and current['settings']['speech_max_minutes'] == 10
+        settings = {**current['settings'], 'phrases': ['One small step at a time.'], 'speech_enabled': True, 'speech_min_minutes': 2, 'speech_max_minutes': 4}
+        for minimum, maximum, expected in [(0, 10, 400), (10, 5, 400), (1, 1441, 400), (1.5, 10, 422)]:
+            invalid = {**settings, 'speech_min_minutes': minimum, 'speech_max_minutes': maximum}
+            assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': invalid})[0] == expected
+        assert request(base, token, '/api/action', {'type': 'update_settings', 'settings': settings})[0] == 200
         if expired['capabilities']['system']:
             assert request(base, token, '/api/action', {'type': 'set_awake', 'mode': 'system'})[0] == 200
             until(base, token, lambda s: s['applied_mode'] == 'system')
@@ -115,10 +138,20 @@ def main():
         assert code == 200 and restored['timers'][0]['id'] == timer_id
         assert restored['timers'][0]['status'] == 'acknowledged'
         assert restored['manual_mode'] == 'off'
+        assert restored['notes'][0]['id'] == note_id and restored['notes'][0]['body'] == body
+        assert restored['notes'][0]['visible'] is False and restored['notes'][0]['pinned'] is True
+        assert restored['notes'][0]['color'] == 'blue' and restored['settings']['phrases'] == settings['phrases']
+        assert restored['settings']['speech_min_minutes'] == 2 and restored['settings']['speech_max_minutes'] == 4
+        assert len(list(profile.glob('state.json.backup-v1-*.json'))) == 1
+        linked_timer = restored['notes'][0]['reminder_id']
+        assert request(base, next_token, '/api/action', {'type': 'delete_note', 'id': note_id})[0] == 200
+        _, deleted = request(base, next_token)
+        assert not deleted['notes']
+        assert next(timer for timer in deleted['timers'] if timer['id'] == linked_timer)['status'] == 'cancelled'
     finally:
         process.terminate()
         process.wait(timeout=5)
-    print('PASS: HTTP auth/origin/host, embedded assets, timer expiry, acknowledgement, native awake on/off, single instance, restart and token rotation.')
+    print('PASS: HTTP auth/origin/host, embedded assets, timer expiry, native awake on/off, single instance, schema migration and exact backup, Unicode notes, stale/invalid edits, hide/pin, note reminder deletion, recurring phrases, restart and token rotation.')
     print(f'Isolated test profile retained: {profile}')
 
 

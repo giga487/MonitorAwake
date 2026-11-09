@@ -1,5 +1,11 @@
 pub mod core;
+#[cfg(feature = "desktop")]
+mod desktop_notes;
+#[cfg(feature = "desktop")]
+mod desktop_speech;
 pub mod http;
+pub mod notes;
+pub mod persistence;
 pub mod platform;
 pub mod service;
 
@@ -33,13 +39,13 @@ pub fn data_directory() -> Result<PathBuf, String> {
     }
     dirs::data_local_dir()
         .map(|p| p.join("MonitorAwake"))
-        .ok_or("Cartella dati utente non disponibile.".into())
+        .ok_or("User data directory unavailable.".into())
 }
 
 pub type Notify = Box<dyn Fn(&Timer) -> Result<(), String> + Send + 'static>;
 
 pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, String> {
-    fs::create_dir_all(&directory).map_err(|e| format!("Cartella dati: {e}"))?;
+    fs::create_dir_all(&directory).map_err(|e| format!("Data directory: {e}"))?;
     let lock = OpenOptions::new()
         .read(true)
         .write(true)
@@ -48,11 +54,11 @@ pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, Str
         .open(directory.join("instance.lock"))
         .map_err(|e| e.to_string())?;
     lock.try_lock_exclusive()
-        .map_err(|_| "MonitorAwake è già in esecuzione con questa cartella dati.".to_string())?;
+        .map_err(|_| "MonitorAwake is already running with this data directory.".to_string())?;
     let service = Arc::new(Mutex::new(Service::load(directory.join("state.json"))?));
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
         .await
-        .map_err(|e| format!("Server locale: {e}"))?;
+        .map_err(|e| format!("Local server: {e}"))?;
     let address = listener.local_addr().map_err(|e| e.to_string())?;
     let token = uuid::Uuid::new_v4().simple().to_string();
     let config_url = format!("http://{address}/#token={token}");
@@ -71,7 +77,7 @@ pub async fn start(directory: PathBuf, notify: Notify) -> Result<AppRuntime, Str
             .await
             && let Ok(mut service) = server_service.lock()
         {
-            service.backend_error = Some(format!("Server HTTP interrotto: {error}"));
+            service.backend_error = Some(format!("HTTP server stopped: {error}"));
         }
     });
     let stopped = Arc::new(AtomicBool::new(false));
@@ -161,7 +167,7 @@ mod desktop {
         Ok(runtime
             .service
             .lock()
-            .map_err(|_| "Motore non disponibile")?
+            .map_err(|_| "Core unavailable")?
             .snapshot())
     }
 
@@ -173,7 +179,7 @@ mod desktop {
         runtime
             .service
             .lock()
-            .map_err(|_| "Motore non disponibile")?
+            .map_err(|_| "Core unavailable")?
             .dispatch(action)
     }
 
@@ -194,8 +200,8 @@ mod desktop {
     }
 
     #[tauri::command]
-    fn quit(app: tauri::AppHandle) {
-        app.exit(0);
+    async fn quit(app: tauri::AppHandle) -> Result<(), String> {
+        crate::desktop_notes::graceful_quit(app).await
     }
 
     pub fn run() -> Result<(), String> {
@@ -207,8 +213,38 @@ mod desktop {
                 dispatch,
                 configuration_url,
                 open_configuration,
-                quit
+                quit,
+                crate::desktop_notes::note_flush_done,
+                crate::desktop_speech::set_speech_visible
             ])
+            .manage(crate::desktop_notes::QuitCoordinator::default())
+            .on_window_event(|window, event| {
+                if window.label() == "controls"
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                {
+                    // Keep the popup available for the next right-click, including after Alt+F4.
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else if window.label() == "mascot"
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                {
+                    api.prevent_close();
+                    let app = window.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = crate::desktop_notes::graceful_quit(app.clone()).await
+                            && let Some(runtime) = app.try_state::<AppRuntime>()
+                            && let Ok(mut service) = runtime.service.lock()
+                        {
+                            service.desktop_error = Some(error);
+                        }
+                    });
+                } else if window.label().starts_with("note-")
+                    && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                {
+                    api.prevent_close();
+                    crate::desktop_notes::close_note(window.app_handle(), window.label());
+                }
+            })
             .setup(|app| {
                 let handle = app.handle().clone();
                 let directory = data_directory().map_err(std::io::Error::other)?;
@@ -218,14 +254,18 @@ mod desktop {
                         handle
                             .notification()
                             .builder()
-                            .title("Tempo scaduto")
-                            .body(format!("Il timer «{}» è terminato.", timer.name))
+                            .title("Time's up")
+                            .body(format!("Timer «{}» has finished.", timer.name))
                             .show()
                             .map_err(|e| e.to_string())
                     }),
                 ))
                 .map_err(std::io::Error::other)?;
                 app.manage(runtime);
+                if let Some(speech) = app.get_webview_window("speech") {
+                    let _ = speech.set_ignore_cursor_events(true);
+                }
+                crate::desktop_notes::start(app.handle().clone());
                 Ok(())
             })
             .build(tauri::generate_context!())

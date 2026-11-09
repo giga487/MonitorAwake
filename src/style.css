@@ -763,7 +763,7 @@ a {
 .welcome .eyebrow {
   margin-top: 20px;
 }
-footer {
+.dashboard > footer {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -773,7 +773,7 @@ footer {
   font-size: 9px;
   color: #a3aa98;
 }
-footer span:last-child {
+.dashboard > footer span:last-child {
   margin-left: auto;
 }
 .mascot {
@@ -902,7 +902,7 @@ footer span:last-child {
   .state-label {
     max-width: 130px;
   }
-  footer span:last-child {
+  .dashboard > footer span:last-child {
     display: none;
   }
 }

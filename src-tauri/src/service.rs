@@ -3,9 +3,9 @@ use crate::{
     platform::Capabilities,
 };
 use serde::Serialize;
+#[cfg(test)]
+use std::fs;
 use std::{
-    fs,
-    io::Write,
     path::PathBuf,
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
@@ -22,6 +22,10 @@ pub fn now_ms() -> u64 {
 
 #[derive(Clone, Serialize)]
 pub struct Snapshot {
+    pub schema_version: u32,
+    pub app_version: &'static str,
+    pub notes: Vec<crate::notes::Note>,
+    pub desktop_error: Option<String>,
     pub timers: Vec<Timer>,
     pub settings: Settings,
     pub manual_mode: AwakeMode,
@@ -48,22 +52,13 @@ pub struct Service {
     pub capabilities: Capabilities,
     pub backend_error: Option<String>,
     pub notification_error: Option<String>,
+    pub desktop_error: Option<String>,
+    pub notes_revision: u64,
 }
 
 impl Service {
     pub fn load(path: PathBuf) -> Result<Self, String> {
-        let model = if path.exists() {
-            if fs::metadata(&path).map_err(|e| e.to_string())?.len() > 1_048_576 {
-                return Err("File dati troppo grande. Nessun dato è stato modificato.".into());
-            }
-            let bytes = fs::read(&path).map_err(|e| format!("Lettura dati: {e}"))?;
-            let model: Model = serde_json::from_slice(&bytes)
-                .map_err(|e| format!("File dati non valido, conservato: {e}"))?;
-            model.validate()?;
-            model
-        } else {
-            Model::default()
-        };
+        let model = crate::persistence::load(&path)?;
         Ok(Self {
             model,
             path,
@@ -73,31 +68,29 @@ impl Service {
             capabilities: Capabilities {
                 system: false,
                 display: false,
-                backend: "Inizializzazione".into(),
+                backend: "Initializing".into(),
             },
             backend_error: None,
             notification_error: None,
+            desktop_error: None,
+            notes_revision: 0,
         })
     }
 
     fn save(&self, model: &Model) -> Result<(), String> {
-        let dir = self.path.parent().ok_or("Cartella dati non valida")?;
-        let mut temporary =
-            tempfile::NamedTempFile::new_in(dir).map_err(|e| format!("Salvataggio: {e}"))?;
-        let data = serde_json::to_vec_pretty(model).map_err(|e| e.to_string())?;
-        temporary
-            .write_all(&data)
-            .map_err(|e| format!("Salvataggio: {e}"))?;
-        temporary.as_file().sync_all().map_err(|e| e.to_string())?;
-        temporary
-            .persist(&self.path)
-            .map_err(|e| format!("Sostituzione file dati: {e}"))?;
-        Ok(())
+        crate::persistence::save(&self.path, model)
+    }
+    pub fn desktop_notes(&self) -> Vec<crate::notes::Note> {
+        self.model.notes.clone()
     }
 
     pub fn snapshot(&self) -> Snapshot {
         let now = now_ms();
         Snapshot {
+            schema_version: self.model.schema_version,
+            app_version: env!("CARGO_PKG_VERSION"),
+            notes: self.model.notes.clone(),
+            desktop_error: self.desktop_error.clone(),
             timers: self.model.timers.clone(),
             settings: self.model.settings.clone(),
             manual_mode: self.manual_mode,
@@ -131,7 +124,7 @@ impl Service {
         let message = if let Action::SetAwake { mode } = action {
             self.check_mode(mode)?;
             self.manual_mode = mode;
-            "Richiesta aggiornata; attendo conferma dal sistema.".into()
+            "Request updated; waiting for system confirmation.".into()
         } else {
             if matches!(
                 action,
@@ -147,6 +140,7 @@ impl Service {
             let message = next.apply(&action, now)?;
             self.save(&next)?;
             self.model = next;
+            self.notes_revision = self.notes_revision.wrapping_add(1);
             message
         };
         Ok(ActionResult {
@@ -158,10 +152,10 @@ impl Service {
     fn check_mode(&self, mode: AwakeMode) -> Result<(), String> {
         match mode {
             AwakeMode::System if !self.capabilities.system => {
-                Err("Mantenimento del sistema non disponibile.".into())
+                Err("Keeping the system awake is unavailable.".into())
             }
             AwakeMode::Display if !self.capabilities.display => {
-                Err("Mantenimento del display non disponibile su questa piattaforma.".into())
+                Err("Keeping the display on is unavailable on this platform.".into())
             }
             _ => Ok(()),
         }
@@ -206,6 +200,54 @@ mod tests {
     }
 
     #[test]
+    fn note_contents_visibility_and_geometry_survive_reload_and_failed_saves() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.json");
+        let mut service = Service::load(path.clone()).unwrap();
+        service.dispatch(Action::CreateNote).unwrap();
+        let id = service.snapshot().notes[0].id;
+        service
+            .dispatch(Action::UpdateNote {
+                id,
+                expected_revision: 0,
+                title: "Saved note".into(),
+                body: "Keep me".into(),
+            })
+            .unwrap();
+        service
+            .dispatch(Action::SetNoteVisible { id, visible: false })
+            .unwrap();
+        service
+            .dispatch(Action::SetNoteBounds {
+                id,
+                bounds: crate::notes::NoteBounds {
+                    x: -1400,
+                    y: 200,
+                    width: 350.0,
+                    height: 280.0,
+                },
+            })
+            .unwrap();
+        let restored = Service::load(path).unwrap().snapshot();
+        assert_eq!(restored.notes[0].body, "Keep me");
+        assert!(!restored.notes[0].visible);
+        assert_eq!(restored.notes[0].bounds.x, -1400);
+        service.path = dir.path().join("missing/state.json");
+        assert!(
+            service
+                .dispatch(Action::UpdateNote {
+                    id,
+                    expected_revision: 1,
+                    title: "Unsaved".into(),
+                    body: "Lost".into()
+                })
+                .is_err()
+        );
+        assert_eq!(service.snapshot().notes[0].body, "Keep me");
+        assert_eq!(service.snapshot().notes[0].content_revision, 1);
+    }
+
+    #[test]
     fn saved_timer_and_preferences_survive_restart() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.json");
@@ -223,13 +265,14 @@ mod tests {
                     mascot: Mascot::Elf,
                     animations: false,
                     notifications: false,
+                    ..Settings::default()
                 },
             })
             .unwrap();
         let restored = Service::load(path).unwrap().snapshot();
         assert_eq!(restored.timers.len(), 1);
         assert!(!restored.settings.animations);
-        assert_eq!(restored.settings.mascot, Mascot::Elf);
+        assert_eq!(restored.settings.mascot, crate::core::MascotKind::Chicken);
         assert_eq!(restored.manual_mode, AwakeMode::Off);
     }
 

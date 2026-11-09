@@ -2,7 +2,7 @@
 
 fn main() {
     if let Err(error) = monitorawake::run() {
-        eprintln!("Impossibile avviare MonitorAwake: {error}");
+        eprintln!("Could not start MonitorAwake: {error}");
         #[cfg(windows)]
         {
             use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};

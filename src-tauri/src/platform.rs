@@ -47,9 +47,9 @@ impl NativeAwake {
             backend: if cfg!(windows) {
                 "Windows · Execution State"
             } else if cfg!(target_os = "linux") {
-                "Linux · logind (solo sistema)"
+                "Linux · logind (system only)"
             } else {
-                "Sistema non supportato"
+                "Unsupported system"
             }
             .into(),
         }
@@ -68,9 +68,7 @@ impl NativeAwake {
             };
             // SAFETY: no pointers; called on the owning worker thread for its whole lifetime.
             if unsafe { SetThreadExecutionState(flags) } == 0 {
-                return Err(
-                    "Windows non ha accettato la richiesta di mantenimento in attività.".into(),
-                );
+                return Err("Windows did not accept the keep-awake request.".into());
             }
             Ok(())
         }
@@ -81,30 +79,22 @@ impl NativeAwake {
                 return Ok(());
             }
             if mode == AwakeMode::Display {
-                return Err("Il controllo del display Linux non è ancora disponibile.".into());
+                return Err("Linux display control is not available yet.".into());
             }
-            let connection = self
-                .connection
-                .as_ref()
-                .ok_or("Bus di sistema non disponibile")?;
+            let connection = self.connection.as_ref().ok_or("System bus unavailable")?;
             let proxy = zbus::blocking::Proxy::new(
                 connection,
                 "org.freedesktop.login1",
                 "/org/freedesktop/login1",
                 "org.freedesktop.login1.Manager",
             )
-            .map_err(|e| format!("logind non disponibile: {e}"))?;
+            .map_err(|e| format!("logind unavailable: {e}"))?;
             let handle: zbus::zvariant::OwnedFd = proxy
                 .call(
                     "Inhibit",
-                    &(
-                        "sleep",
-                        "MonitorAwake",
-                        "Timer o richiesta manuale",
-                        "block",
-                    ),
+                    &("sleep", "MonitorAwake", "Timer or manual request", "block"),
                 )
-                .map_err(|e| format!("Impossibile inibire la sospensione: {e}"))?;
+                .map_err(|e| format!("Could not inhibit sleep: {e}"))?;
             self.inhibitor = Some(handle);
             Ok(())
         }
@@ -113,7 +103,7 @@ impl NativeAwake {
             if mode == AwakeMode::Off {
                 Ok(())
             } else {
-                Err("Piattaforma non supportata.".into())
+                Err("Unsupported platform.".into())
             }
         }
     }

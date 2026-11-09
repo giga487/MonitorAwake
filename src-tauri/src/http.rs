@@ -27,7 +27,7 @@ pub fn router(state: HttpState) -> Router {
         .route("/api/state", get(snapshot))
         .route("/api/action", post(action))
         .fallback(asset)
-        .layer(DefaultBodyLimit::max(16 * 1024))
+        .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(state.clone(), guard))
         .with_state(state)
 }
@@ -35,13 +35,13 @@ pub fn router(state: HttpState) -> Router {
 async fn guard(State(state): State<HttpState>, request: Request, next: Next) -> Response {
     let headers = request.headers();
     if headers.get(header::HOST).and_then(|v| v.to_str().ok()) != Some(state.authority.as_ref()) {
-        return error(StatusCode::FORBIDDEN, "Host non consentito.");
+        return error(StatusCode::FORBIDDEN, "Host not allowed.");
     }
     let origin = format!("http://{}", state.authority);
     if let Some(value) = headers.get(header::ORIGIN)
         && value.to_str().ok() != Some(origin.as_str())
     {
-        return error(StatusCode::FORBIDDEN, "Origine non consentita.");
+        return error(StatusCode::FORBIDDEN, "Origin not allowed.");
     }
     if request.uri().path().starts_with("/api/") {
         let expected = format!("Bearer {}", state.token);
@@ -52,7 +52,7 @@ async fn guard(State(state): State<HttpState>, request: Request, next: Next) -> 
         {
             return error(
                 StatusCode::UNAUTHORIZED,
-                "Apri la configurazione dalla mascotte per accedere.",
+                "Open settings from the mascot to sign in.",
             );
         }
     }
@@ -73,7 +73,7 @@ fn error(status: StatusCode, message: &str) -> Response {
 async fn snapshot(State(state): State<HttpState>) -> Response {
     match state.service.lock() {
         Ok(service) => Json(service.snapshot()).into_response(),
-        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Motore non disponibile."),
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),
     }
 }
 
@@ -83,7 +83,7 @@ async fn action(State(state): State<HttpState>, Json(action): Json<Action>) -> R
             Ok(result) => Json(result).into_response(),
             Err(message) => error(StatusCode::BAD_REQUEST, &message),
         },
-        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Motore non disponibile."),
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),
     }
 }
 

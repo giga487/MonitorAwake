@@ -12,7 +12,11 @@
       | 'arrow'
       | 'power'
       | 'check'
-      | 'minus';
+      | 'minus'
+      | 'note'
+      | 'pin'
+      | 'trash'
+      | 'chat';
     size?: number;
   } = $props();
   const paths = {
@@ -27,6 +31,10 @@
     power: 'M12 2v10M6 5a9 9 0 1 0 12 0',
     check: 'm5 12 4 4L19 6',
     minus: 'M5 12h14',
+    note: 'M4 3h16v12l-6 6H4V3Zm10 18v-6h6M8 8h8M8 12h5',
+    pin: 'm9 3 6 0-1 6 4 4v2H6v-2l4-4-1-6ZM12 15v6',
+    trash: 'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',
+    chat: 'M4 4h16v12H9l-5 4V4ZM8 8h8M8 12h5',
   };
 </script>
 

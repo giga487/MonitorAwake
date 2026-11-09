@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test:widget": "node --experimental-strip-types --test scripts/widget.test.mjs",
     "tauri": "tauri",
     "desktop:dev": "npm run build && tauri dev",
     "desktop:build": "tauri build",

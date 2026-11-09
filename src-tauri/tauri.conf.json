@@ -14,14 +14,45 @@
       {
         "label": "mascot",
         "title": "MonitorAwake",
-        "width": 320,
-        "height": 390,
+        "width": 160,
+        "height": 160,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,
         "alwaysOnTop": true,
         "center": true
+      },
+      {
+        "label": "controls",
+        "title": "MonitorAwake - Notifications",
+        "url": "index.html",
+        "width": 320,
+        "height": 440,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false,
+        "skipTaskbar": true
+      },
+      {
+        "label": "speech",
+        "title": "MonitorAwake — A little thought",
+        "url": "index.html",
+        "width": 300,
+        "height": 200,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visible": false,
+        "focus": false,
+        "focusable": false,
+        "skipTaskbar": true
       }
     ],
     "security": {
@@ -31,7 +62,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "deb", "appimage"],
-    "shortDescription": "Timer e compagnia sul desktop",
+    "shortDescription": "Timers and a desktop companion",
     "category": "Utility",
     "icon": ["icons/icon.ico", "icons/icon.png"]
   }
