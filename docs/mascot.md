@@ -7,3 +7,11 @@ La mascotte usa ancora le animazioni CSS di movimento e avviso; questa immagine 
 ## Prompt utilizzato
 
 Use case: stylized-concept. Asset type: one production desktop companion mascot sprite on transparent background. Primary request: a nerdy CHICKEN with a SCREEN FACE. Design a clearly recognizable small round hen robot: ivory/off-white rounded chicken body, red comb on top of the head, tiny red wattles just below the face panel, two feather-shaped little wings, a small fan of tail feathers, two short yellow-orange chicken legs with three-toed feet. The FACE ITSELF is a dark rounded rectangular CRT screen inset into the chicken's head, showing two expressive bright phosphor-green pixel eyes and a tiny pixel beak/mouth. The screen replaces the whole organic face; do not put a human face there. The character should read first as a chicken and second as a retro computer companion, not as a monitor with generic arms. Charming, alert, mildly mischievous nerd personality. Crisp 16-bit pixel art with coherent chunky pixel clusters and a dark outline; restrained retro palette, gentle pixel shading, no smooth vector illustration, no glossy 3D render. Front-facing with slight three-quarter body orientation, symmetrical readable screen face. Entire single character visible from comb to toes, centered square composition, about 85 percent of canvas, clear padding. Must be legible as a desktop pet at 120px high. Truly transparent alpha background. No scene, no ground plane, no cast shadow, no checkerboard, no words, no logo, no extra characters or props.
+
+## Elfo dei boschi
+
+La seconda mascotte è uno sprite trasparente in `public/elf.png`, generato con ImageGen. Si sceglie in **Preferenze → La tua mascotte**. Nel widget l’elfo si inclina come una sentinella e fa un saltello, con una pausa tra i due gesti.
+
+### Prompt della variante bionda
+
+Modifica solo il colore dei capelli di questo elfo in pixel art: biondo miele naturale con ciocche dorate, ombre ocra e riflessi color paglia. Conserva taglio e volumi dei capelli, posa, viso, occhi verdi, orecchie lunghe, tunica verde, spada, scudo a foglia, proporzioni, inquadratura dell'intera figura e stile pixel art dell'originale. Mantieni lo sfondo trasparente.

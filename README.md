@@ -22,16 +22,12 @@ Servono Rust stable (Cargo, rustfmt, Clippy), Node.js 22.12+ o una LTS successiv
 Se Rust è già installato tramite rustup, questo script configura Cargo, compilatore e SDK nella **sessione PowerShell corrente**, senza modificare il PATH permanente:
 
 ```powershell
-. .\scripts\windows-env.ps1
+. .\scripts\windows-env.ps1 -BootstrapSdk
 npm.cmd ci
 npm.cmd run desktop:dev
 ```
 
-Se manca il Windows SDK moderno, lo script può scaricare i pacchetti ufficiali Microsoft NuGet in `%LOCALAPPDATA%\MonitorAwake\build-tools`, senza installazione amministrativa:
-
-```powershell
-. .\scripts\windows-env.ps1 -BootstrapSdk
-```
+Se manca il Windows SDK, `-BootstrapSdk` scarica i pacchetti ufficiali Microsoft da NuGet in `%LOCALAPPDATA%\MonitorAwake\build-tools` per l’utente corrente. Alle esecuzioni successive lo script riusa la copia locale.
 
 Lo script richiede comunque un compilatore MSVC x64 già installato. La prima build scarica e compila le dipendenze; le successive sono incrementali.
 
@@ -40,7 +36,7 @@ Lo script richiede comunque un compilatore MSVC x64 già installato. La prima bu
 ## Generare l'app Windows
 
 ```powershell
-. .\scripts\windows-env.ps1
+. .\scripts\windows-env.ps1 -BootstrapSdk
 npm.cmd ci
 npm.cmd run desktop:build -- --bundles nsis
 ```

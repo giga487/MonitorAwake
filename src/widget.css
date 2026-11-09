@@ -85,6 +85,35 @@ html.desktop #app {
 .mascot.celebrate {
   animation: celebrate 1s ease-in-out infinite;
 }
+.widget:not(.still) .elf-idle {
+  transform-origin: 50% 92%;
+  animation: elf-idle 24s ease-in-out infinite;
+}
+@keyframes elf-idle {
+  0%,
+  25%,
+  37%,
+  70%,
+  74%,
+  100% {
+    transform: none;
+  }
+  28%,
+  30% {
+    transform: rotate(-5deg);
+  }
+  33%,
+  35% {
+    transform: rotate(4deg);
+  }
+  71%,
+  73% {
+    transform: scale(1.03, 0.96);
+  }
+  72% {
+    transform: translateY(-7px);
+  }
+}
 @keyframes celebrate {
   0%,
   100% {

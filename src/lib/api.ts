@@ -1,6 +1,10 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 export type AwakeMode = 'off' | 'system' | 'display';
+export const mascots = [
+  { id: 'chicken', name: 'Gallina robot', src: '/mascot.png' },
+  { id: 'elf', name: 'Elfo dei boschi', src: '/elf.png' },
+] as const;
 export interface Timer {
   id: string;
   name: string;
@@ -10,6 +14,7 @@ export interface Timer {
   keep_awake: boolean;
 }
 export interface Settings {
+  mascot: (typeof mascots)[number]['id'];
   animations: boolean;
   notifications: boolean;
 }

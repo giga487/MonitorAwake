@@ -10,11 +10,15 @@
     dispatch,
     remaining,
     modes,
+    mascots,
     type Snapshot,
     type Action,
   } from './lib/api';
 
   let snapshot = $state<Snapshot | null>(null);
+  const mascot = $derived(
+    mascots.find((item) => item.id === snapshot?.settings.mascot) ?? mascots[0],
+  );
   let message = $state('Sono qui. Dimmi quando avvisarti.');
   let error = $state('');
   let connectionError = $state('');
@@ -202,8 +206,9 @@
       <img
         class="mascot"
         class:celebrate={expired.length > 0}
-        src="/mascot.png"
-        alt="Una gallina robot in pixel art con cresta rossa e viso verde fosforo su uno schermo"
+        class:elf-idle={mascot.id === 'elf' && !expired.length}
+        src={mascot.src}
+        alt={mascot.name}
         draggable="false"
       />
     </button>
@@ -310,10 +315,10 @@
       >
         <img
           class="mascot"
-          src="/mascot.png"
+          src={mascot.src}
           width="150"
           height="150"
-          alt="La tua mascotte"
+          alt={mascot.name}
         />
         <strong>Tu fai le tue cose.</strong>
         <p>Al tempo ci penso io.</p>
@@ -567,6 +572,24 @@
       {:else}
         <section class="panel preferences">
           <h2>La tua mascotte</h2>
+          <div class="mode-options mascot-options">
+            {#each mascots as option (option.id)}
+              <button
+                class:selected={mascot.id === option.id}
+                aria-pressed={mascot.id === option.id}
+                disabled={busy || !snapshot}
+                onclick={() =>
+                  snapshot &&
+                  act({
+                    type: 'update_settings',
+                    settings: { ...snapshot.settings, mascot: option.id },
+                  })}
+              >
+                <img src={option.src} width="40" height="40" alt="" />
+                <strong>{option.name}</strong>
+              </button>
+            {/each}
+          </div>
           <label class="setting-row"
             ><span
               ><strong>Animazioni leggere</strong><small

@@ -195,6 +195,15 @@ impl Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::Mascot;
+
+    #[test]
+    fn older_preferences_keep_the_chicken() {
+        let settings: Settings =
+            serde_json::from_str(r#"{"animations":false,"notifications":true}"#).unwrap();
+        assert_eq!(settings.mascot, Mascot::Chicken);
+        assert!(!settings.animations);
+    }
 
     #[test]
     fn saved_timer_and_preferences_survive_restart() {
@@ -211,6 +220,7 @@ mod tests {
         service
             .dispatch(Action::UpdateSettings {
                 settings: Settings {
+                    mascot: Mascot::Elf,
                     animations: false,
                     notifications: false,
                 },
@@ -219,6 +229,7 @@ mod tests {
         let restored = Service::load(path).unwrap().snapshot();
         assert_eq!(restored.timers.len(), 1);
         assert!(!restored.settings.animations);
+        assert_eq!(restored.settings.mascot, Mascot::Elf);
         assert_eq!(restored.manual_mode, AwakeMode::Off);
     }
 

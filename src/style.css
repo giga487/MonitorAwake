@@ -608,6 +608,13 @@ a {
   padding: 13px 11px;
   text-align: left;
 }
+.mascot-options {
+  grid-template-columns: repeat(2, 1fr);
+}
+.mascot-options img {
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 .mode-options button.selected {
   background: #f2f6eb;
   border-color: #b9cba5;
@@ -770,6 +777,7 @@ footer span:last-child {
   margin-left: auto;
 }
 .mascot {
+  object-fit: contain;
   image-rendering: pixelated;
   animation: breathe 4s ease-in-out infinite;
 }

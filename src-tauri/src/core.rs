@@ -32,9 +32,19 @@ pub struct Timer {
     pub keep_awake: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Mascot {
+    #[default]
+    Chicken,
+    Elf,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default)]
+    pub mascot: Mascot,
     pub animations: bool,
     pub notifications: bool,
 }
@@ -42,6 +52,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            mascot: Mascot::default(),
             animations: true,
             notifications: true,
         }

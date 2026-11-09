@@ -31,8 +31,8 @@ if ($sdkVersion) {
             New-Item -ItemType Directory -Path $destination -Force | Out-Null
             $archive = Join-Path $sdkCache "$package.zip"
             Write-Host "Scarico $package $sdkPackageVersion dal feed ufficiale NuGet..."
-            Invoke-WebRequest -Uri "https://api.nuget.org/v3-flatcontainer/$package/$sdkPackageVersion/$package.$sdkPackageVersion.nupkg" -OutFile $archive
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($archive, $destination, $true)
+            Invoke-WebRequest -UseBasicParsing -Uri "https://api.nuget.org/v3-flatcontainer/$package/$sdkPackageVersion/$package.$sdkPackageVersion.nupkg" -OutFile $archive
+            Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
             Set-Content -LiteralPath (Join-Path $destination '.complete') -Value $sdkPackageVersion
         }
     }
