@@ -3,6 +3,7 @@
   import { dispatch, desktop, type Snapshot, type Action } from './api';
   import Icon from './Icon.svelte';
   import NoteEditor from './NoteEditor.svelte';
+  import NotesStorage from './NotesStorage.svelte';
   let {
     snapshot,
     onstate,
@@ -59,6 +60,7 @@
 </script>
 
 <section class="notes-panel" class:compact aria-label="My notes">
+  <NotesStorage {snapshot} {onstate} />
   <div class="notes-heading">
     <h2>My notes</h2>
     <button
@@ -92,6 +94,9 @@
       >
         <div>
           <strong>{item.title || 'Untitled note'}</strong>
+          {#if snapshot.note_sync.entries.find((entry) => entry.id === item.id)?.conflict}<small
+              >Conflict needs review</small
+            >{/if}
           <p>
             {item.body.slice(0, 80) ||
               'An empty page, ready for your thoughts.'}

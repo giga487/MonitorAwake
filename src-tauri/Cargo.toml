@@ -1,7 +1,7 @@
 [package]
 name = "monitorawake"
-version = "0.1.0"
-description = "Un piccolo assistente desktop, locale e discreto"
+version = "0.2.0"
+description = "A small, unobtrusive desktop assistant with local-first storage"
 edition = "2024"
 license = "MIT"
 default-run = "monitorawake"

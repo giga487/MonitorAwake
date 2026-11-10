@@ -43,6 +43,8 @@ jobs:
         run: node scripts/check-release-version.mjs
       - run: npm ci
       - run: npm run test:widget
+      - run: npm run test:firebase
+      - run: npm run test:firestore
       - run: npm run check
       - run: npm run build
       - run: cargo fmt --all -- --check

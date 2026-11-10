@@ -1,16 +1,24 @@
-# Release Windows
+# Windows releases
 
-La pagina pubblica e [GitHub Releases](https://github.com/giga487/MonitorAwake/releases), con collegamento permanente [ultima versione](https://github.com/giga487/MonitorAwake/releases/latest).
+Public downloads are available on [GitHub Releases](https://github.com/giga487/MonitorAwake/releases), with a permanent [latest release link](https://github.com/giga487/MonitorAwake/releases/latest).
 
-Il workflow **Release Windows setup** (`.github/workflows/release.yml`) parte quando viene pubblicato un tag `vX.Y.Z`. Controlla che tag, Cargo, Tauri e npm abbiano la stessa versione, esegue controlli frontend e test Rust, compila il setup NSIS su Windows x64 e lo allega a una release in bozza. Pubblica la release solo dopo aver verificato la presenza del setup. Non richiede segreti aggiuntivi: usa `GITHUB_TOKEN` del workflow con `contents: write`.
+**Release Windows setup** (`.github/workflows/release.yml`) runs on a `vX.Y.Z` tag. It checks matching tag, Cargo, Tauri and npm versions, runs frontend/Rust checks, builds the Windows x64 NSIS installer, and attaches it to a draft release. The release is published only after verifying the setup asset exists. It uses the workflow's `GITHUB_TOKEN` with `contents: write`; no additional secret is required.
 
-Per una nuova versione:
+## Release a version
 
-1. Aggiornare insieme `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json` e i rispettivi lockfile. La versione dello schema dati e separata.
-2. Eseguire controlli, commit e push.
-3. Creare un tag annotato, per esempio `git tag -a v0.1.1 -m "MonitorAwake v0.1.1"`, e pubblicarlo con `git push origin v0.1.1`.
-4. Attendere **Release Windows setup** in Actions. Il setup compare nella sezione **Assets** della release.
+1. Update `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json` and both lockfiles together. Data schema versions are separate.
+2. Run checks, commit and push.
+3. Create and push an annotated tag matching the version. For the current version:
 
-Per ripetere una build usare **Actions > Release Windows setup > Run workflow**, indicando un tag gia esistente. Non spostare tag gia pubblicati su commit diversi.
+```sh
+git tag -a v0.2.0 -m "MonitorAwake v0.2.0"
+git push origin v0.2.0
+```
 
-Il rilascio automatico comprende il setup Windows; la compilazione Linux resta nel workflow di controllo. Riferimenti: [Tauri Windows installer](https://v2.tauri.app/distribute/windows-installer/) e [tauri-action](https://github.com/tauri-apps/tauri-action).
+4. Wait for **Release Windows setup** in Actions. The setup appears under the release's **Assets**.
+
+To repeat a build, use **Actions > Release Windows setup > Run workflow** with an existing tag. Do not move published tags to different commits.
+
+Release automation currently produces Windows setup; Linux compilation remains in the check workflow. Personal Firebase configuration must stay outside release assets. A version bump alone does not commit, tag or publish a release.
+
+References: [Tauri Windows installer](https://v2.tauri.app/distribute/windows-installer/), [tauri-action](https://github.com/tauri-apps/tauri-action).

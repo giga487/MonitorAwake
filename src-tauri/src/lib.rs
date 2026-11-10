@@ -3,7 +3,10 @@ pub mod core;
 mod desktop_notes;
 #[cfg(feature = "desktop")]
 mod desktop_speech;
+pub mod firebase_config;
+pub mod google_sign_in;
 pub mod http;
+pub mod note_sync;
 pub mod notes;
 pub mod persistence;
 pub mod platform;
@@ -189,6 +192,56 @@ mod desktop {
     }
 
     #[tauri::command]
+    fn note_cloud_operations(
+        scope: crate::note_sync::CloudScope,
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<Vec<crate::note_sync::CloudOperation>, String> {
+        runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .cloud_operations(&scope)
+    }
+    #[tauri::command]
+    fn set_note_sync_status(
+        status: crate::note_sync::SyncStatus,
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<(), String> {
+        if status.message.len() > 1024 || status.pending > 200 {
+            return Err("Invalid synchronization status.".into());
+        }
+        runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .note_sync_status = status;
+        Ok(())
+    }
+
+    #[tauri::command]
+    fn firebase_setup(
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<firebase_config::FirebaseSetup, String> {
+        runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .firebase_setup()
+    }
+
+    #[tauri::command]
+    fn set_firebase_config(
+        config: firebase_config::FirebaseConfig,
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<(), String> {
+        runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .set_firebase_config(&config)
+    }
+
+    #[tauri::command]
     fn open_configuration(
         app: tauri::AppHandle,
         runtime: State<'_, AppRuntime>,
@@ -197,6 +250,39 @@ mod desktop {
         app.opener()
             .open_url(&runtime.config_url, None::<&str>)
             .map_err(|e| e.to_string())
+    }
+
+    #[tauri::command]
+    fn begin_google_login(
+        app: tauri::AppHandle,
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<String, String> {
+        let challenge = runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .begin_google_login()?;
+        // Only the user's Sign in with Google button calls this command.
+        app.opener()
+            .open_url(
+                format!("{}&google={challenge}", runtime.config_url),
+                None::<&str>,
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(challenge)
+    }
+
+    #[tauri::command]
+    fn take_google_login(
+        challenge: String,
+        runtime: State<'_, AppRuntime>,
+    ) -> Result<Option<google_sign_in::GoogleCredential>, String> {
+        runtime
+            .service
+            .lock()
+            .map_err(|_| "Core unavailable")?
+            .google_sign_in
+            .take(&challenge, service::now_ms())
     }
 
     #[tauri::command]
@@ -212,6 +298,12 @@ mod desktop {
                 get_state,
                 dispatch,
                 configuration_url,
+                firebase_setup,
+                set_firebase_config,
+                note_cloud_operations,
+                set_note_sync_status,
+                begin_google_login,
+                take_google_login,
                 open_configuration,
                 quit,
                 crate::desktop_notes::note_flush_done,
@@ -255,7 +347,12 @@ mod desktop {
                             .notification()
                             .builder()
                             .title("Time's up")
-                            .body(format!("Timer «{}» has finished.", timer.name))
+                            .body(match timer.kind {
+                                core::TimerKind::Alarm => format!("Alarm «{}» is due.", timer.name),
+                                core::TimerKind::Timer => {
+                                    format!("Timer «{}» has finished.", timer.name)
+                                }
+                            })
                             .show()
                             .map_err(|e| e.to_string())
                     }),

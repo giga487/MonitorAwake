@@ -66,6 +66,16 @@ nunit-*.xml
 /.test-data/
 *.local
 
+# Per-installation Firebase configuration, never bundled with the application.
+/firebase.local.json
+/firebase.local.json.backup-*.json
+/state.json
+/state.json.backup-*.json
+/firebase-debug*.log
+/firestore-debug.log
+/.firebaserc
+/ui-debug.log
+
 # The icon generator also produces unused mobile/store variants.
 /src-tauri/icons/*
 !/src-tauri/icons/icon.ico

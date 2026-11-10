@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { dispatch, remaining, type Snapshot, type Action } from './api';
+  import {
+    dispatch,
+    remaining,
+    alarmTime,
+    type Snapshot,
+    type Action,
+  } from './api';
   let {
     snapshot,
     now,
@@ -59,6 +65,7 @@
       <strong>{timer.name}</strong><span class="compact-countdown"
         >{remaining(timer, now)}</span
       >
+      {#if timer.kind === 'alarm'}<span>Alarm · {alarmTime(timer)}</span>{/if}
       <div>
         <button
           class="text-button"

@@ -505,6 +505,16 @@ a {
   overflow-y: auto;
   padding-right: 3px;
 }
+.new-alarm {
+  margin-top: 22px;
+  border-top: 1px solid #e6ecdd;
+  padding-top: 16px;
+}
+.new-alarm summary {
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
 .timer-card {
   padding: 15px;
   background: #f8faf4;

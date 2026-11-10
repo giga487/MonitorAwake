@@ -8,6 +8,21 @@ permissions:
   contents: read
 
 jobs:
+  firebase-rules:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Auth and Firestore integration tests
+        run: npx --yes firebase-tools@15.35.0 emulators:exec --project demo-monitorawake --only auth,firestore "npm run test:firebase && npm run test:firestore"
   check:
     strategy:
       fail-fast: false
@@ -28,6 +43,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm ci
       - run: npm run test:widget
+      - run: npm run test:firebase
+      - run: npm run test:firestore
       - run: npm run check
       - run: npm run build
       - run: cargo fmt --all -- --check

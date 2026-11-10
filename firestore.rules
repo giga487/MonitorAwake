@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function memberAt(members, index) {
+      return members.size() <= index || (members[index] is string && members[index].size() > 0 && members[index].size() <= 128);
+    }
+    function validMembers(members) {
+      return members is list && members.size() > 0 && members.size() <= 20
+        && members.toSet().size() == members.size()
+        && memberAt(members,0) && memberAt(members,1) && memberAt(members,2) && memberAt(members,3)
+        && memberAt(members,4) && memberAt(members,5) && memberAt(members,6) && memberAt(members,7)
+        && memberAt(members,8) && memberAt(members,9) && memberAt(members,10) && memberAt(members,11)
+        && memberAt(members,12) && memberAt(members,13) && memberAt(members,14) && memberAt(members,15)
+        && memberAt(members,16) && memberAt(members,17) && memberAt(members,18) && memberAt(members,19);
+    }
+    function validNote(data, noteId) {
+      return data.keys().hasAll(['schema_version','id','title','body','color','owner_uid','member_uids','revision','deleted'])
+        && data.keys().hasOnly(['schema_version','id','title','body','color','owner_uid','member_uids','revision','deleted'])
+        && data.schema_version == 1 && data.id == noteId
+        && noteId.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        && data.title is string && data.title.size() <= 80
+        && data.body is string && data.body.size() <= 10000
+        && data.color in ['yellow','sage','blue','rose']
+        && data.owner_uid is string && data.owner_uid.size() > 0 && data.owner_uid.size() <= 128
+        && validMembers(data.member_uids) && data.owner_uid in data.member_uids
+        && data.revision is int && data.revision > 0 && data.revision <= 9007199254740991
+        && data.deleted is bool;
+    }
+    match /notes/{noteId} {
+      allow get: if signedIn() && (!exists(/databases/$(database)/documents/notes/$(noteId)) || request.auth.uid in resource.data.member_uids);
+      allow list: if signedIn() && request.auth.uid in resource.data.member_uids;
+      allow create: if signedIn() && validNote(request.resource.data,noteId)
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.member_uids == [request.auth.uid]
+        && request.resource.data.revision == 1;
+      allow update: if signedIn() && request.auth.uid in resource.data.member_uids
+        && validNote(request.resource.data,noteId)
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && request.resource.data.revision == resource.data.revision + 1
+        && (request.resource.data.member_uids == resource.data.member_uids || request.auth.uid == resource.data.owner_uid);
+      // Deletion is a versioned tombstone, so offline clients can reconcile it.
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

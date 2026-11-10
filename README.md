@@ -1,39 +1,43 @@
 # MonitorAwake
 
-[Scarica ultima release](https://github.com/giga487/MonitorAwake/releases/latest) · [Release e setup automatico](docs/releases.md)
+[Download the latest release](https://github.com/giga487/MonitorAwake/releases/latest) · [Release and installer workflow](docs/releases.md)
 
-Un piccolo assistente desktop in Rust: mascotte Tauri, timer e configurazione HTTP locale in Svelte. Tutto funziona sul computer dell'utente, senza account o servizi cloud.
+A small desktop assistant built with Rust, Tauri and Svelte. Keep your computer awake, create named timers and alarms, and manage desktop sticky notes beside an animated mascot. Local features work without an account; Firebase note synchronization and sharing are optional.
 
-L'interfaccia, i messaggi e le notifiche dell'app sono in inglese. Esempi: `timer tea 5 minutes`, `remind me in 30 minutes`, `how much time is left?`, `add 5 minutes to timer tea`, `cancel timer tea`. I comandi italiani restano compatibili; i nomi dei timer salvati non vengono tradotti.
+Application version: **0.2.0**. Local data schema: **8**. Firebase configuration and cloud note documents each use schema **1**. Application and data versions are independent.
 
-## Prima versione
+## Install and get started
 
-Oltre a **Chicken** sono disponibili **Frost gryphon**, un grifone del gelo, ed **Ember wyvern**, una viverna dalle ali cremisi, entrambi in pixel art nello stile di Chicken. Dal menu **My timers** si accede direttamente a timer attivi, avvisi e storico.
+On Windows, run the x64 setup from GitHub Releases or build it below. Close a running copy before replacing it. Local builds are unsigned. The installer can install WebView2 if missing; downloading that runtime may require a connection.
 
-Le **Desktop notes** si creano dal menu con **New note** e si ritrovano in **My notes**: testo e titolo, quattro colori, primo piano, ridimensionamento, salvataggio automatico e promemoria opzionali. Chiudere nasconde; cancellare richiede una conferma separata. Le frasi della vignetta e le pause minime e massime si configurano in **Preferences > Recurring phrases** (predefinito: 5-10 minuti, anche durante la cova). L'icona dell'app e neutra e distinta dalla mascotte. Dettagli in [Note desktop e frasi ricorrenti](docs/notes.md).
+The mascot starts above the taskbar. Drag it with the left mouse button; right-click to open the menu in a separate window without moving the mascot. Press Esc, click outside, or switch applications to dismiss the menu. Keyboard: focus the mascot with Tab, then press Enter, Space or Shift+F10. Closing the menu hides it; **Quit** stops the app and its awake requests.
 
-La mascotte si sceglie dal menu o dalle preferenze; sono disponibili **Chicken**, **Frost gryphon** ed **Ember wyvern**. La gallina guarda in alto durante l'attesa, ogni tanto becca o svolazza e cova quando ci sono notifiche in attesa. Ogni notifica ha un uovo: verde con piu del 50% del tempo rimanente, giallo fino al 20%, rosso nella fase finale. Dopo la scadenza l'uovo rimane incrinato fino alla conferma. Animazioni disattivabili; supporto a riduzione del movimento. Dettagli e provenienza degli asset in `docs/mascot.md`.
+- **Notification:** enter a message, select **Next**, choose an integer amount from 1 to 100 and seconds, minutes, hours or days, then select **Start notification**. Maximum duration: 100 days.
+- **Alarm:** choose a name and future local date/time. Find alarms and timers in **My timers**. See [Local alarms](docs/alarms.md).
+- **New note / My notes:** create and reopen sticky notes with autosave, four colors, pinning, resizing and optional reminders. Closing hides a note; deletion requires confirmation. See [Desktop notes](docs/notes.md).
+- **Preferences:** configure awake behavior, animations, your mascot and recurring phrases. Personal phrases can be in any language. Default speech pauses are 5–10 minutes, including while brooding.
+- **Firebase account:** configure your own project and sign in. **My notes > Use Firebase notes** explicitly enables synchronization. Follow the [Firebase setup guide](docs/firebase-setup.md).
 
-Sul desktop rimane solo la gallina, inizialmente posizionata sopra la barra delle applicazioni. Trascinala con il tasto sinistro; il tasto destro apre il pannello con comandi, timer, configurazione, minimizzazione e uscita. Il pannello si chiude con Esc, con un clic sulla gallina o all'esterno, oppure passando a un'altra applicazione. Da tastiera: Tab per raggiungere la gallina, Invio/Spazio o Maiusc+F10 per aprire il pannello. Le scadenze e gli errori mostrano un piccolo avviso sulla mascotte anche con il pannello chiuso. Il posizionamento automatico dipende dalle funzionalita del desktop, in particolare su Wayland.
+The interface and notifications are in English. Text commands include `timer tea 5 minutes`, `remind me in 30 minutes`, `how much time is left?`, `add 5 minutes to timer tea` and `cancel timer tea`. Italian commands remain supported; saved names and personal phrases are not translated. The command field never executes arbitrary shell commands.
 
-Il pannello usa una finestra separata: aprirlo e chiuderlo non sposta o ridimensiona la gallina. Per creare un avviso seleziona **Notification**, scrivi il testo e premi **Next**; scegli quindi una quantita da 0 a 100 e **Seconds**, **Minutes**, **Hours** o **Days**. **Start notification** richiede una quantita intera maggiore di zero. La durata massima e 100 giorni. Lo stesso percorso e disponibile nella configurazione web; i comandi testuali restano nella voce **Text command**. Chiudere il pannello con Alt+F4 lo nasconde; chiudere la finestra della gallina termina l'app.
+Chicken, Frost gryphon, Ember wyvern and Woodland elf are selectable mascots. Each pending notification has an egg: green above 50% remaining, yellow down to 20%, then red. Ready eggs remain cracked until acknowledged. Animations can be disabled and respect reduced motion. See [Mascots and assets](docs/mascot.md).
 
-- Mascotte trasparente, trascinabile, sempre in primo piano, con comando testuale, minimizzazione e uscita esplicita.
-- Pagina HTTP con timer, storico, mantenimento in attività e preferenze.
-- Timer multipli con nome, annullamento, estensione di 5 minuti e conferma dell'avviso.
-- Comandi come `timer tè 5 minuti`, `avvisami tra 30 minuti`, `quanto manca?`, `aggiungi 5 minuti al timer tè`, `annulla il timer tè`.
-- Salvataggio locale dei timer e delle preferenze. Recupero delle scadenze all'avvio e dopo sospensione.
-- Notifiche di sistema nella versione desktop; avviso persistente nella mascotte e nella pagina.
-- Windows: mantenimento del sistema oppure di sistema e display tramite API native.
-- Linux: prima integrazione logind per il sistema; controllo del display non ancora implementato. Comportamento reale da verificare sulla distribuzione di destinazione.
+## Configure Firebase notes
 
-L'esecuzione di script e la pianificazione di task secondari sono sviluppi successivi: questo prototipo non esegue comandi di shell ricevuti dall'interfaccia.
+Firebase is optional. Awake, timers, alarms and note reminders remain local.
 
-## Sviluppo su Windows
+1. Create a Firebase project and register a **Web** app. Hosting and Analytics are not required.
+2. Enable **Authentication > Sign-in method > Google**. Add `127.0.0.1` to authorized domains if missing.
+3. Create a **Cloud Firestore Standard** database with ID **`(default)`**, in Production mode. Choose a European location before creation if required.
+4. Publish [firestore.rules](firestore.rules) in the database's **Rules** tab.
+5. Open **Firebase account > Local Firebase configuration** and enter your SDK values using [firebase.example.json](firebase.example.json) as the field-name template.
+6. Sign in, then select **My notes > Use Firebase notes**. This also uploads existing local notes to that account.
 
-Servono Rust stable (Cargo, rustfmt, Clippy), Node.js 22.12+ o una LTS successiva compatibile con Vite, Microsoft C++ Build Tools x64 e Windows SDK. Per la finestra desktop serve WebView2.
+Project configuration belongs to the individual installation. It is stored in `firebase.local.json`, excluded from Git and the installer. No default Firebase project is bundled. The [full setup guide](docs/firebase-setup.md) explains field mapping, file locations, Google sign-in and troubleshooting; [Cloud notes](docs/cloud-notes.md) covers sharing, offline changes and conflicts.
 
-Se Rust è già installato tramite rustup, questo script configura Cargo, compilatore e SDK nella **sessione PowerShell corrente**, senza modificare il PATH permanente:
+## Windows development
+
+Requirements: Rust stable with Cargo, rustfmt and Clippy; Node.js 22.12+ or a later compatible LTS; Microsoft C++ Build Tools x64; Windows SDK; and WebView2 for the desktop UI.
 
 ```powershell
 . .\scripts\windows-env.ps1 -BootstrapSdk
@@ -41,102 +45,101 @@ npm.cmd ci
 npm.cmd run desktop:dev
 ```
 
-Se manca il Windows SDK, `-BootstrapSdk` scarica i pacchetti ufficiali Microsoft da NuGet in `%LOCALAPPDATA%\MonitorAwake\build-tools` per l’utente corrente. Alle esecuzioni successive lo script riusa la copia locale.
+The script configures the current PowerShell session without changing the permanent PATH. If needed, `-BootstrapSdk` downloads official Microsoft SDK packages from NuGet into `%LOCALAPPDATA%\MonitorAwake\build-tools`; an installed MSVC x64 compiler is still required. Later runs reuse the cache.
 
-Lo script richiede comunque un compilatore MSVC x64 già installato. La prima build scarica e compila le dipendenze; le successive sono incrementali.
+`desktop:dev` builds the embedded assets, starts Vite headlessly and launches the native app. Mascot edits support hot reload; rebuild assets and restart to update the embedded HTTP page. No browser opens automatically.
 
-`desktop:dev` prepara prima gli asset della configurazione HTTP, poi avvia Vite e la finestra desktop. Vite non apre browser. Le modifiche della mascotte hanno hot reload; per aggiornare la pagina HTTP incorporata, ricompila gli asset e riavvia l'app.
-
-## Generare l'app Windows
-
-Lo script prepara l'ambiente, installa le dipendenze frontend se assenti e genera eseguibile e installer:
+To generate the executable and Windows installer:
 
 ```powershell
 .\scripts\build-windows.ps1
 ```
 
-Puoi eseguirlo anche da un'altra cartella usando il percorso completo. Se manca il Windows SDK, aggiungi `-BootstrapSdk` per scaricare i pacchetti ufficiali Microsoft nella cache locale. Lo script si ferma in caso di errore e non avvia l'app o il browser.
+Add `-BootstrapSdk` if required. The script installs frontend dependencies when absent, stops on errors, and does not launch the result. Outputs:
 
-Risultati nella cartella `target/release`: eseguibile `monitorawake.exe` e installer in `bundle/nsis/`. I pacchetti locali non sono firmati. L'installer può predisporre WebView2 se assente; l'opzione predefinita può richiedere rete durante l'installazione del runtime. Dopo l'installazione, timer e configurazione sono offline.
+- `target/release/monitorawake.exe`
+- `target/release/bundle/nsis/MonitorAwake_0.2.0_x64-setup.exe`
 
-## Sviluppo su Linux
+## Linux development
 
-Installa Rust, Node.js e i prerequisiti Tauri della tua distribuzione. Per Ubuntu/Debian, la base è:
+Install Rust, Node.js and your distribution's Tauri prerequisites. On Ubuntu/Debian:
 
 ```sh
 sudo apt install build-essential libwebkit2gtk-4.1-dev libssl-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
 npm ci
 npm run desktop:dev
-# Pacchetto per la distribuzione compatibile con l'ambiente di build:
 npm run desktop:build -- --bundles deb
 ```
 
-La mascotte richiede una sessione grafica. Su Wayland posizionamento, trascinamento e primo piano dipendono dal compositor. Il backend logind richiede il bus di sistema e l'autorizzazione all'inibizione di `sleep`; non mantiene il display acceso e non aggira le politiche del sistema. L'inibizione `sleep` può essere considerata anche per richieste esplicite di sospensione, secondo le politiche logind.
+The mascot requires a graphical session. Wayland placement, dragging and always-on-top behavior depend on the compositor. The initial Linux awake adapter uses logind and requires system-bus access and permission to inhibit `sleep`; display inhibition is not implemented. It does not bypass system policy. Depending on logind policy, inhibition may also affect explicit sleep requests. Actual desktop Linux behavior was not verified in the latest Windows increment.
 
-## Configurazione HTTP
+## Local configuration server
 
-Avvia l'app e premi l'ingranaggio della mascotte: il browser si apre **solo con questa azione**. Il pulsante `URL` permette di selezionare e copiare il link. Chiudere la pagina non ferma timer e mascotte; uscire dall'app arresta anche il server.
+Select the mascot menu's settings gear to open configuration in your browser. **URL** lets you copy the private link. Closing the page does not stop the app; quitting the app stops its server.
 
-Il server sceglie una porta libera e ascolta esclusivamente su `127.0.0.1`. Il link contiene una chiave casuale per quella sessione nel frammento `#token=...`; la pagina la sposta in `sessionStorage` e la rimuove dalla barra degli indirizzi. Le API richiedono tale chiave, controllano Host e Origin e non abilitano CORS. Non condividere il link. Al riavvio la vecchia sessione non è valida: riapri dalla mascotte.
+The Rust server listens only on `127.0.0.1` and chooses an available port. Its private link contains a random per-run key in `#token=...`; the page moves it into session storage and removes it from the address bar. APIs require the key, validate Host and Origin, and do not enable wildcard CORS. Do not share the link. Reopen configuration from the mascot after restarting.
 
-Per lavorare sul motore senza la finestra Tauri:
+To run the core without Tauri:
 
 ```sh
 npm run server
 ```
 
-Stampa il link privato nel terminale e non apre browser. In questa modalità gli avvisi vengono scritti sul terminale, non nelle notifiche desktop. `Ctrl+C` arresta il server e rilascia il mantenimento in attività. È consentita una sola istanza per cartella dati.
+This prints the private URL without opening a browser. Notifications go to the terminal in this mode. Ctrl+C stops the server and releases awake requests. Only one instance is allowed per data directory. The standalone HTTP page does not run the desktop Firebase synchronization worker.
 
-## Dati e comportamento
+## Data and behavior
 
-Il formato attuale usa `schema_version: 6` per l'intero archivio. Le migrazioni dalle versioni da 1 a 5 creano un backup esatto prima di salvare il nuovo formato. Dettagli in [Dati persistenti e migrazioni](docs/persistence.md).
+- Windows data: `%LOCALAPPDATA%\MonitorAwake\state.json`.
+- Linux data: `$XDG_DATA_HOME/MonitorAwake`, normally `~/.local/share/MonitorAwake`.
+- `MONITORAWAKE_DATA_DIR` selects an isolated test profile.
+- Saves use temporary files and atomic replacement. Corrupt files and unsupported future formats are preserved. Migrations create exact backups first; see [Persistence](docs/persistence.md).
+- Timers use absolute UTC deadlines. Clock corrections affect remaining time. The app cannot wake a suspended computer; overdue timers are recovered on startup/resume.
+- Manual awake mode starts disabled each session. Each timer with awake enabled owns an independent request until expiry or cancellation.
+- Expiry is persisted before external notification delivery. A crash between these steps may miss that notification, while the in-app alert remains after restart. Exactly-once external delivery is not guaranteed.
+- Windows Tauri notifications require an installed app for their intended behavior; the mascot and configuration page remain useful during development.
 
-- Windows: `%LOCALAPPDATA%\MonitorAwake\state.json`.
-- Linux: directory dati locale dell'utente (`$XDG_DATA_HOME/MonitorAwake`, normalmente `~/.local/share/MonitorAwake`).
-- `MONITORAWAKE_DATA_DIR` permette di isolare un profilo di prova.
-- I salvataggi usano un file temporaneo e sostituzione atomica; file corrotti o versioni non supportate non vengono sovrascritti.
-- I timer seguono una scadenza UTC: una correzione dell'orologio cambia il tempo rimanente. Il prototipo non risveglia un computer sospeso.
-- Il mantenimento manuale vale per la sessione e riparte disattivato. Ogni timer con `PC sveglio` conserva una richiesta indipendente fino alla scadenza o all'annullamento.
-- Una scadenza viene salvata prima della notifica: un crash tra i due passaggi può impedire la notifica esterna, ma l'avviso rimane visibile al riavvio. Non viene promessa consegna esattamente una volta.
-- Su Windows le notifiche Tauri richiedono l'app installata per il comportamento previsto; in sviluppo la mascotte e la pagina restano il riferimento per gli avvisi.
+## Checks
 
-## Verifiche
+Build frontend assets before Rust checks because they are embedded into the executable.
 
 ```sh
 npm run check
 npm run test:widget
+npm run test:firebase
+npm run test:firestore
 npm run build
 cargo fmt --all -- --check
-cargo test --workspace --no-default-features
-cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --no-default-features --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-I test Rust coprono scadenze e riavvio, richieste di risveglio sovrapposte, comandi ambigui, durate errate, fallimenti di salvataggio e controllo degli accessi HTTP. Il frontend va compilato prima dei test Rust perché i suoi asset sono incorporati nell'eseguibile.
+Firebase integration cases require local emulators; otherwise they are skipped. See the [emulator instructions](docs/firebase-setup.md#local-emulator-tests). CI runs a separate emulator job with a fictitious project.
 
-La build non sostituisce la verifica visiva. Rispettare `AGENTS.md`: nessun browser avviato durante lo sviluppo o i test senza una richiesta esplicita dell'utente.
-
-Test HTTP completo, con profilo temporaneo separato e richiesta di risveglio limitata alla prova:
+For an actual HTTP test with an isolated profile:
 
 ```sh
 cargo build --no-default-features --bin monitorawake-server
 python scripts/smoke-server.py target/debug/monitorawake-server.exe
-# Su Linux: target/debug/monitorawake-server
+# Linux: target/debug/monitorawake-server
 ```
 
-Il test verifica accesso, origine, host, asset incorporati, scadenza, conferma, esclusione della seconda istanza e riavvio con rotazione della chiave. Arresta il processo di prova anche se un controllo fallisce e conserva il profilo temporaneo per diagnosi.
+The script covers authentication, Host/Origin checks, assets, expiry, restart, token rotation, persistence and single-instance behavior. It stops its process on failure and retains the test profile for diagnosis.
 
-Stato della verifica iniziale (6 novembre 2026): 10 test Rust passati, frontend senza errori o warning, Clippy passato e installer Windows x64 generato. Test HTTP reale e richieste native Windows di attivazione/disattivazione passati. Backend Linux controllato con `cargo check --no-default-features --target x86_64-unknown-linux-gnu`; nessuna prova del desktop Linux. La finestra Windows espone correttamente i controlli all'accessibilità, ma il tool di verifica non è riuscito ad attivarla (`failed to activate captured window`): trascinamento, resa visiva e notifiche installate restano da verificare manualmente. Nessun browser è stato aperto durante queste verifiche.
+Windows verification on November 10, 2026: 42 Rust tests, 16 widget tests, 5 Firebase Auth/config tests and 2 Firestore tests passed, along with Svelte, Clippy and HTTP checks. Native Windows emulator tests verified upload, queued edits across restart, resumed synchronization, remote changes and deletion. Real Google sign-in and the production database remain to be verified by the user. Desktop Linux was not tested for this increment. Compilation alone does not verify desktop behavior. Follow the browser policy in `AGENTS.md`.
 
-## Mappa del codice
+## Code map
 
-| File                        | Responsabilità                                                                    |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `src-tauri/src/core.rs`     | Tipi, transizioni dei timer e interprete dei comandi; nessuna dipendenza da Tauri |
-| `src-tauri/src/service.rs`  | Stato condiviso e persistenza transazionale                                       |
-| `src-tauri/src/http.rs`     | Server Axum, API autenticate e asset incorporati                                  |
-| `src-tauri/src/platform.rs` | Adapter Windows/Linux e durata delle richieste native                             |
-| `src-tauri/src/lib.rs`      | Ciclo di vita, scheduler e collegamento Tauri                                     |
-| `src/App.svelte`            | Mascotte e pannello di configurazione                                             |
-| `src/lib/api.ts`            | Trasporto Tauri o HTTP verso lo stesso motore                                     |
+| File | Responsibility |
+| --- | --- |
+| `src-tauri/src/core.rs` | Domain types, timer transitions and deterministic commands |
+| `src-tauri/src/service.rs` | Shared state and transactional persistence |
+| `src-tauri/src/note_sync.rs` | Cloud note state, queued changes and conflicts |
+| `src-tauri/src/firebase_config.rs` | Local runtime Firebase configuration |
+| `src-tauri/src/http.rs` | Axum server, authenticated APIs and embedded assets |
+| `src-tauri/src/platform.rs` | Windows/Linux adapters and awake request lifetimes |
+| `src-tauri/src/lib.rs` | Desktop lifecycle, scheduler and Tauri commands |
+| `src/App.svelte` | Mascot and configuration interface |
+| `src/lib/api.ts` | Tauri/HTTP transport to the same Rust service |
+| `src/lib/NotesCloudSync.svelte` | Desktop Firebase synchronization worker |
 
-Le skill mantenute nel repository sono in `skills/`. Dopo una modifica, sincronizza le copie personali in `~/.codex/skills/`.
+Maintained project skills live in `skills/`. Synchronize installed personal copies in `~/.codex/skills/` when changing those skills.

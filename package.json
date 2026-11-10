@@ -1,6 +1,6 @@
 {
   "name": "monitorawake",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,13 +8,19 @@
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test:widget": "node --experimental-strip-types --test scripts/widget.test.mjs",
+    "test:firebase": "node --experimental-strip-types --test scripts/firebase.test.mjs scripts/firebase-auth.test.mjs",
+    "test:firestore": "node --experimental-strip-types --test scripts/firestore.test.mjs",
     "tauri": "tauri",
     "desktop:dev": "npm run build && tauri dev",
     "desktop:build": "tauri build",
     "server": "npm run build && cargo run --no-default-features --bin monitorawake-server"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.4"
+    "@tauri-apps/api": "^2.12.4",
+    "firebase": "^13.2.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

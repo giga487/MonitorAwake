@@ -13,7 +13,11 @@
   import NoteEditor from './lib/NoteEditor.svelte';
   import NotesPanel from './lib/NotesPanel.svelte';
   import TimersPanel from './lib/TimersPanel.svelte';
+  import AlarmForm from './lib/AlarmForm.svelte';
   import PhraseSettings from './lib/PhraseSettings.svelte';
+  import FirebaseAccount from './lib/FirebaseAccount.svelte';
+  import GoogleSignIn from './lib/GoogleSignIn.svelte';
+  import NotesStorage from './lib/NotesStorage.svelte';
   import SpeechBubble from './lib/SpeechBubble.svelte';
   import { mascots, type MascotKind } from './lib/mascot';
   import { selectRecurringPhrase } from './lib/mascot';
@@ -29,12 +33,16 @@
     getState,
     dispatch,
     remaining,
+    alarmTime,
     modes,
     type Snapshot,
     type Action,
   } from './lib/api';
 
   let snapshot = $state<Snapshot | null>(null);
+  const googleChallenge = !desktop
+    ? new URLSearchParams(location.hash.slice(1)).get('google')
+    : null;
   let message = $state('Ready when you are. Tell me when to remind you.');
   let error = $state('');
   let connectionError = $state('');
@@ -59,7 +67,9 @@
   const currentNote = $derived(
     snapshot?.notes.find((note) => note.id === noteId),
   );
-  let panelSection = $state<'home' | 'notes' | 'timers'>('home');
+  let panelSection = $state<'home' | 'notes' | 'timers' | 'alarm' | 'account'>(
+    'home',
+  );
   const selectedMascotName = $derived(
     mascots.find((mascot) => mascot.id === snapshot?.settings.mascot)?.name ??
       'Chicken',
@@ -439,7 +449,13 @@
   </form>
 {/snippet}
 
-{#if noteId}
+{#if desktop && !isPanel && !isSpeech && !noteId && snapshot?.settings.notes_storage === 'firebase'}
+  {#await import('./lib/NotesCloudSync.svelte') then { default: NotesSync }}<NotesSync
+    />{/await}
+{/if}
+{#if googleChallenge}
+  <GoogleSignIn challenge={googleChallenge} />
+{:else if noteId}
   {#if snapshot && currentNote}<NoteEditor
       note={currentNote}
       {snapshot}
@@ -483,29 +499,51 @@
             >
           </div>
         </div>
-        <div class="speech" aria-live="polite">
-          {#if expired.length}
-            <strong>Time’s up! ✨</strong>
-            <span>«{expired[0].name}» has finished.</span>
-            <button
-              class="text-button"
-              disabled={busy}
-              onclick={() =>
-                act({ type: 'acknowledge_timer', id: expired[0].id })}
-              >Dismiss <Icon name="check" size={14} /></button
-            >
-          {:else if running[0]}
-            <span
-              >{running[0].name}{running.length > 1
-                ? ` · +${running.length - 1} timer`
-                : ''}</span
-            >
-            <strong class="widget-countdown"
-              >{remaining(running[0], now)}</strong
-            >
-          {:else}<span>{message}</span>{/if}
-        </div>
-        {#if panelSection === 'notes' && snapshot}
+        {#if (panelSection !== 'alarm' && panelSection !== 'account') || expired.length}<div
+            class="speech"
+            aria-live="polite"
+          >
+            {#if expired.length}
+              <strong>Time’s up! ✨</strong>
+              <span>«{expired[0].name}» has finished.</span>
+              <button
+                class="text-button"
+                disabled={busy}
+                onclick={() =>
+                  act({ type: 'acknowledge_timer', id: expired[0].id })}
+                >Dismiss <Icon name="check" size={14} /></button
+              >
+            {:else if running[0]}
+              <span
+                >{running[0].name}{running.length > 1
+                  ? ` · +${running.length - 1} timer`
+                  : ''}</span
+              >
+              <strong class="widget-countdown"
+                >{remaining(running[0], now)}</strong
+              >
+            {:else}<span>{message}</span>{/if}
+          </div>{/if}
+        {#if panelSection === 'account'}
+          <FirebaseAccount />
+          <button class="text-button" onclick={() => (panelSection = 'home')}
+            >Back to menu</button
+          >
+        {:else if panelSection === 'alarm'}
+          <h2>New alarm</h2>
+          <AlarmForm
+            {snapshot}
+            {now}
+            onstate={accept}
+            oncreated={(text) => {
+              message = text;
+              panelSection = 'timers';
+            }}
+          />
+          <button class="text-button" onclick={() => (panelSection = 'home')}
+            >Back to menu</button
+          >
+        {:else if panelSection === 'notes' && snapshot}
           <NotesPanel {snapshot} onstate={accept} compact />
           <button class="text-button" onclick={() => (panelSection = 'home')}
             >Back to menu</button
@@ -536,12 +574,24 @@
                   size={16}
                 /></button
               >
+              <button class="menu-item" onclick={() => (panelSection = 'alarm')}
+                ><Icon name="timer" size={18} /><span>Alarm</span><Icon
+                  name="arrow"
+                  size={16}
+                /></button
+              >
               <button
                 class="menu-item"
                 onclick={() => (panelSection = 'timers')}
                 ><Icon name="timer" size={18} /><span>My timers</span><span
                   >{snapshot?.timers.length ?? 0}</span
                 ></button
+              >
+              <button
+                class="menu-item"
+                onclick={() => (panelSection = 'account')}
+                ><Icon name="settings" size={18} /><span>Firebase account</span
+                ><Icon name="arrow" size={16} /></button
               >
               <details class="advanced-command">
                 <summary>Text command</summary>
@@ -836,6 +886,15 @@
               <Icon name="plus" size={18} />
             </div>
             {@render notificationWizard()}
+            <details class="new-alarm">
+              <summary>Set an alarm for a date and time</summary>
+              <AlarmForm
+                {snapshot}
+                {now}
+                onstate={accept}
+                oncreated={(text) => (message = text)}
+              />
+            </details>
           </section>
           <section class="panel active-panel">
             <div class="section-title">
@@ -864,6 +923,9 @@
                       >
                     </div>
                     <div class="timer-time">{remaining(timer, now)}</div>
+                    {#if timer.kind === 'alarm'}<small
+                        >Alarm · {alarmTime(timer)}</small
+                      >{/if}
                     <progress
                       max={timer.duration_seconds * 1000}
                       value={Math.max(0, timer.deadline_ms - now)}
@@ -1051,6 +1113,10 @@
           </p>
         </section>
         {#if snapshot}<PhraseSettings {snapshot} onstate={accept} />{/if}
+        {#if snapshot}<section class="panel preferences">
+            <NotesStorage {snapshot} onstate={accept} />
+          </section>{/if}
+        <section class="panel preferences"><FirebaseAccount /></section>
         <section class="panel preferences">
           <h2>Truly local.</h2>
           <p>

@@ -1,13 +1,13 @@
 # Frost gryphon
 
-Aggiornamento grafico: il catalogo usa ora la versione pixel art; dettagli e prompt in [Pixel-art redesign](pixel-mascots.md). I riferimenti agli atlanti dipinti qui sotto descrivono la prima versione, conservata come sorgente.
+The catalog now uses the pixel-art version; see [Pixel-art redesign](pixel-mascots.md). The painted atlas below describes the original version retained as a source asset.
 
-Seconda mascotte di MonitorAwake, distinta dall'icona neutra dell'app. Si seleziona da **Mascot > Frost gryphon** nel menu o da **Preferences > Your mascot**.
+MonitorAwake's second mascot is distinct from the neutral app icon. Select **Mascot > Frost gryphon** in the menu or **Preferences > Your mascot**.
 
-`public/frost-gryphon-actions.png` e un atlante PNG a sfondo alpha trasparente, generato con ImageGen il 7 novembre 2026. Il riferimento fornito dall'utente e una schermata di World of Warcraft nella neve: ha ispirato la palette fredda e la resa fantasy dipinta, senza riprodurre schermata, interfaccia o loghi.
+`public/frost-gryphon-actions.png` is a transparent PNG atlas generated with ImageGen on November 7, 2026. A user-provided snowy World of Warcraft screenshot inspired its cool palette and painted fantasy appearance without copying the screenshot, interface or logos.
 
-Il personaggio e un piccolo grifone con piume bianche e azzurre, occhi ambra, bardatura in cuoio e bronzo e cristallo ciano. La griglia 2 × 2 segue il contratto condiviso delle mascotte: attesa in alto a sinistra, beccata in alto a destra, svolazzo in basso a sinistra, cova in basso a destra. Uova e vignette restano elementi dinamici separati.
+The character is a small gryphon with white/ice-blue feathers, amber eyes, leather/bronze harness and cyan crystal. The shared 2 × 2 atlas contract places waiting top left, pecking top right, fluttering bottom left and brooding bottom right. Eggs and speech bubbles are separate dynamic elements.
 
-Il catalogo dichiara `rendering: auto` per conservare la resa morbida, mentre Chicken mantiene `pixelated`. Gli stati e le scadenze sono gli stessi; nessuna mascotte possiede una copia distinta dei timer. Il nuovo identificatore persistente `frost_gryphon` richiede lo schema 3, con migrazione esplicita e backup dai formati precedenti. La migrazione conserva la selezione esistente e non modifica le frasi personali.
+The original painted catalog used `rendering: auto`, while Chicken used `pixelated`; the current redesign uses pixelated rendering for both. States and deadlines are shared, with no mascot-specific timer store. Persistent identifier `frost_gryphon` introduced schema 3 and an explicit migration with exact backups. Migration preserves the existing selection and personal phrases.
 
-Verifica Windows del 7 novembre 2026: 21 test Rust e 12 test frontend, Clippy, controlli Svelte e prova HTTP passati. L'app nativa e stata verificata su profili isolati con Frost gryphon selezionato: catturate e ispezionate le pose di attesa e cova con un uovo; verificato **My timers** con un timer attivo e cinque voci di storico. Esportati eseguibile e installer NSIS aggiornati. Desktop Linux non verificato.
+Windows verification on November 7, 2026: 21 Rust tests, 12 frontend tests, Clippy, Svelte and HTTP checks passed. Isolated native profiles verified waiting/brooding captures with one egg, and **My timers** with an active timer and five history entries. Updated executable and NSIS installer were generated. Desktop Linux was not verified.

@@ -26,6 +26,11 @@ pub fn router(state: HttpState) -> Router {
     Router::new()
         .route("/api/state", get(snapshot))
         .route("/api/action", post(action))
+        .route(
+            "/api/firebase/config",
+            get(firebase_setup).post(save_firebase_config),
+        )
+        .route("/api/firebase/google/complete", post(complete_google_login))
         .fallback(asset)
         .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(middleware::from_fn_with_state(state.clone(), guard))
@@ -61,8 +66,21 @@ async fn guard(State(state): State<HttpState>, request: Request, next: Next) -> 
     headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
     headers.insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse().unwrap());
     headers.insert(header::REFERRER_POLICY, "no-referrer".parse().unwrap());
-    headers.insert(header::CONTENT_SECURITY_POLICY,
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'".parse().unwrap());
+    let auth_domain = state
+        .service
+        .lock()
+        .ok()
+        .and_then(|service| service.firebase_setup().ok())
+        .and_then(|setup| {
+            setup
+                .config
+                .map(|config| format!("https://{}", config.auth_domain))
+        });
+    let frame_source = auth_domain.as_deref().unwrap_or("'none'");
+    let connect_source = auth_domain.as_deref().unwrap_or("");
+    headers.insert(header::CONTENT_SECURITY_POLICY, format!(
+        "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com {connect_source}; frame-src {frame_source}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    ).parse().unwrap());
     response
 }
 
@@ -77,10 +95,49 @@ async fn snapshot(State(state): State<HttpState>) -> Response {
     }
 }
 
+async fn firebase_setup(State(state): State<HttpState>) -> Response {
+    match state.service.lock() {
+        Ok(service) => match service.firebase_setup() {
+            Ok(setup) => Json(setup).into_response(),
+            Err(message) => error(StatusCode::BAD_REQUEST, &message),
+        },
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),
+    }
+}
+
+async fn save_firebase_config(
+    State(state): State<HttpState>,
+    Json(config): Json<crate::firebase_config::FirebaseConfig>,
+) -> Response {
+    match state.service.lock() {
+        Ok(mut service) => match service.set_firebase_config(&config) {
+            Ok(()) => Json(serde_json::json!({"saved":true})).into_response(),
+            Err(message) => error(StatusCode::BAD_REQUEST, &message),
+        },
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),
+    }
+}
+
 async fn action(State(state): State<HttpState>, Json(action): Json<Action>) -> Response {
     match state.service.lock() {
         Ok(mut service) => match service.dispatch(action) {
             Ok(result) => Json(result).into_response(),
+            Err(message) => error(StatusCode::BAD_REQUEST, &message),
+        },
+        Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),
+    }
+}
+
+async fn complete_google_login(
+    State(state): State<HttpState>,
+    Json(completion): Json<crate::google_sign_in::GoogleCompletion>,
+) -> Response {
+    match state.service.lock() {
+        Ok(mut service) => match service
+            .google_sign_in
+            .complete(completion, crate::service::now_ms())
+        {
+            Ok(()) => Json(serde_json::json!({"received":true})).into_response(),
             Err(message) => error(StatusCode::BAD_REQUEST, &message),
         },
         Err(_) => error(StatusCode::INTERNAL_SERVER_ERROR, "Core unavailable."),

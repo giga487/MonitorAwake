@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NoteSharing from './NoteSharing.svelte';
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { invoke } from '@tauri-apps/api/core';
@@ -319,7 +320,9 @@
       >
     </form>{/if}
   {#if deleting}<div class="note-delete" role="alert">
-      Delete this note and its reminder permanently?
+      {snapshot?.settings.notes_storage === 'firebase'
+        ? 'Delete this note for everyone sharing it? Its local reminder will also be removed.'
+        : 'Delete this note and its reminder permanently?'}
       <div>
         <button onclick={() => (deleting = false)}>Keep note</button><button
           onclick={() => action({ type: 'delete_note', id: note.id })}
@@ -327,6 +330,7 @@
         >
       </div>
     </div>{/if}
+  <NoteSharing {note} {snapshot} {onstate} beforeAction={flush} />
   <footer class="note-footer">
     <div class="note-colors" aria-label="Note color">
       {#each ['yellow', 'sage', 'blue', 'rose'] as color}<button
@@ -350,7 +354,13 @@
     ><button aria-label="Delete note" onclick={() => (deleting = !deleting)}
       ><Icon name="trash" size={16} /></button
     ><span class="note-save-status" aria-live="polite"
-      >{saving ? 'Saving…' : dirty ? 'Unsaved' : 'Saved'}</span
+      >{saving
+        ? 'Saving…'
+        : dirty
+          ? 'Unsaved'
+          : snapshot?.settings.notes_storage === 'firebase'
+            ? 'Saved locally'
+            : 'Saved'}</span
     >
   </footer>
 </article>

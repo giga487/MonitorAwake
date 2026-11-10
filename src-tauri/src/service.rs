@@ -22,6 +22,8 @@ pub fn now_ms() -> u64 {
 
 #[derive(Clone, Serialize)]
 pub struct Snapshot {
+    pub note_sync: crate::note_sync::NoteSync,
+    pub note_sync_status: crate::note_sync::SyncStatus,
     pub schema_version: u32,
     pub app_version: &'static str,
     pub notes: Vec<crate::notes::Note>,
@@ -44,6 +46,8 @@ pub struct ActionResult {
 }
 
 pub struct Service {
+    pub note_sync_status: crate::note_sync::SyncStatus,
+    pub google_sign_in: crate::google_sign_in::GoogleSignIn,
     model: Model,
     path: PathBuf,
     persistence_error: Option<String>,
@@ -57,9 +61,56 @@ pub struct Service {
 }
 
 impl Service {
+    pub fn cloud_operations(
+        &self,
+        scope: &crate::note_sync::CloudScope,
+    ) -> Result<Vec<crate::note_sync::CloudOperation>, String> {
+        self.model.cloud_operations(scope)
+    }
+    pub fn begin_google_login(&mut self) -> Result<String, String> {
+        if self.firebase_setup()?.config.is_none() {
+            return Err("Save your Firebase configuration first.".into());
+        }
+        Ok(self.google_sign_in.begin(now_ms()))
+    }
+    pub fn firebase_setup(&self) -> Result<crate::firebase_config::FirebaseSetup, String> {
+        let path = self
+            .path
+            .parent()
+            .ok_or("Invalid data directory.")?
+            .join("firebase.local.json");
+        let auth_emulator_url = std::env::var("MONITORAWAKE_AUTH_EMULATOR_URL")
+            .ok()
+            .map(|value| crate::firebase_config::emulator_url(&value))
+            .transpose()?;
+        Ok(crate::firebase_config::FirebaseSetup {
+            config: crate::firebase_config::load(&path)?,
+            auth_emulator_url,
+            firestore_emulator_url: std::env::var("MONITORAWAKE_FIRESTORE_EMULATOR_URL")
+                .ok()
+                .map(|value| crate::firebase_config::emulator_url(&value))
+                .transpose()?,
+        })
+    }
+
+    pub fn set_firebase_config(
+        &mut self,
+        config: &crate::firebase_config::FirebaseConfig,
+    ) -> Result<(), String> {
+        let path = self
+            .path
+            .parent()
+            .ok_or("Invalid data directory.")?
+            .join("firebase.local.json");
+        crate::firebase_config::save(&path, config)?;
+        self.google_sign_in = crate::google_sign_in::GoogleSignIn::default();
+        Ok(())
+    }
     pub fn load(path: PathBuf) -> Result<Self, String> {
         let model = crate::persistence::load(&path)?;
         Ok(Self {
+            note_sync_status: crate::note_sync::SyncStatus::default(),
+            google_sign_in: crate::google_sign_in::GoogleSignIn::default(),
             model,
             path,
             persistence_error: None,
@@ -87,6 +138,8 @@ impl Service {
     pub fn snapshot(&self) -> Snapshot {
         let now = now_ms();
         Snapshot {
+            note_sync: self.model.note_sync.clone(),
+            note_sync_status: self.note_sync_status.clone(),
             schema_version: self.model.schema_version,
             app_version: env!("CARGO_PKG_VERSION"),
             notes: self.model.notes.clone(),
@@ -129,6 +182,9 @@ impl Service {
             if matches!(
                 action,
                 Action::AddTimer {
+                    keep_awake: true,
+                    ..
+                } | Action::AddAlarm {
                     keep_awake: true,
                     ..
                 }
@@ -190,6 +246,69 @@ impl Service {
 mod tests {
     use super::*;
     use crate::core::MascotKind;
+
+    #[test]
+    fn google_credentials_are_not_in_snapshots_and_config_changes_cancel_handoffs() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut service = Service::load(dir.path().join("state.json")).unwrap();
+        assert!(service.begin_google_login().is_err());
+        let config = crate::firebase_config::FirebaseConfig {
+            schema_version: 1,
+            project_id: "demo-notes".into(),
+            api_key: "test-key".into(),
+            auth_domain: "demo-notes.firebaseapp.com".into(),
+            app_id: "test-app".into(),
+            storage_bucket: None,
+            messaging_sender_id: None,
+        };
+        service.set_firebase_config(&config).unwrap();
+        let challenge = service.begin_google_login().unwrap();
+        service
+            .google_sign_in
+            .complete(
+                crate::google_sign_in::GoogleCompletion {
+                    challenge: challenge.clone(),
+                    id_token: "not-for-state-token".into(),
+                },
+                now_ms(),
+            )
+            .unwrap();
+        assert!(
+            !serde_json::to_string(&service.snapshot())
+                .unwrap()
+                .contains("not-for-state-token")
+        );
+        service.set_firebase_config(&config).unwrap();
+        assert!(service.google_sign_in.take(&challenge, now_ms()).is_err());
+    }
+
+    #[test]
+    fn alarm_awake_capability_and_failed_save_are_checked_before_commit() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut service = Service::load(dir.path().join("state.json")).unwrap();
+        let deadline_ms = now_ms() + 60_000;
+        assert!(
+            service
+                .dispatch(Action::AddAlarm {
+                    name: "Unsupported awake".into(),
+                    deadline_ms,
+                    keep_awake: true
+                })
+                .is_err()
+        );
+        assert!(service.model.timers.is_empty());
+        service.path = dir.path().join("missing/state.json");
+        assert!(
+            service
+                .dispatch(Action::AddAlarm {
+                    name: "Failed save".into(),
+                    deadline_ms,
+                    keep_awake: false
+                })
+                .is_err()
+        );
+        assert!(service.model.timers.is_empty());
+    }
 
     #[test]
     fn older_preferences_keep_the_chicken() {

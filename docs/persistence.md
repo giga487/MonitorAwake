@@ -1,57 +1,56 @@
-# Dati persistenti e migrazioni
+# Persistent data and migrations
 
-Requisito concordato: tutti i dati persistenti devono appartenere a uno schema versionato. La versione del formato dati e distinta dalla versione dell'applicazione.
+All persistent data must belong to a versioned schema. Data format versions are independent of application release versions.
 
-## Stato attuale
+## Current state
 
-`state.json` contiene una versione globale `schema_version: 6`, dichiarata da `core::SCHEMA_VERSION`. Copre timer, note e preferenze, incluse mascotte e frasi ricorrenti: non serve una versione per ogni entita. La configurazione mostra versione dell'app e versione dello schema nei dettagli locali.
+`state.json` uses global `schema_version: 8`, declared in `core::SCHEMA_VERSION`. It covers timers, notes, cloud synchronization metadata and preferences, including mascots and recurring phrases. The configuration page exposes app and schema versions in local details.
 
-`persistence::load` legge la versione prima di deserializzare il modello corrente. Supporta il formato corrente, la catena v1 -> v2 -> v3 -> v4 -> v5 -> v6 e i passaggi dai formati da 2 a 5: conserva timer e preferenze, inizializza le note vuote e assegna i valori predefiniti alle frasi. Valida il risultato, scrive una copia esatta dell'originale in `state.json.backup-v<versione-originale>-<uuid>.json` senza sovrascrivere backup precedenti, poi sostituisce atomicamente il file principale tramite un file temporaneo sincronizzato. Una riapertura del file v6 non ripete la migrazione. File corrotti e versioni future non vengono sovrascritti; non viene tentato un downgrade.
+`persistence::load` reads the version before deserializing. It supports the migration chain v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8, preserving existing data and explicitly initializing new fields. It validates the migrated model, writes an exact backup named `state.json.backup-v<original-version>-<uuid>.json` without replacing earlier backups, then atomically replaces the main file using a synchronized temporary file.
 
-Il campo opzionale `settings.mascot` usa un default Serde per leggere i file precedenti come `chicken`. Anche le preferenze delle frasi hanno default espliciti. La revisione del testo di ogni nota (`content_revision`) impedisce a un editor obsoleto di sovrascrivere modifiche nuove; non e una versione dello schema. Colore, geometria e visibilita non incrementano la revisione del testo.
+Reopening a current-format file does not migrate again. Corrupt files and unsupported future versions are preserved; no downgrade is attempted. The special v1 elf prototype can migrate directly to v6 before following later steps.
 
-## Contratto per le prossime modifiche
+Serde defaults handle explicitly supported omissions, such as an older profile's missing mascot or phrase preferences. A default alone does not make arbitrary future changes backward compatible: older clients could erase fields on save.
 
-- Dichiarare la versione corrente in un unico punto del backend Rust e conservare la descrizione di ciascuna versione distribuita.
-- Versionare ogni archivio persistente. Se note, preferenze e timer rimangono nello stesso documento, una versione globale li copre tutti. Se vengono separati in altri file, ogni file deve dichiarare il proprio formato e la propria versione.
-- Documentare anche la compatibilita tra archivi e i riferimenti tra entita. Evitare aggiornamenti parziali di file diversi che lascino una nota collegata a un promemoria inesistente.
-- Rilevare la versione prima di deserializzare nel modello corrente. Distinguere formato vecchio migrabile, formato futuro non supportato e dati corrotti.
-- Migrare per passi espliciti, per esempio `v1 -> v2 -> v3`, attraverso tipi o trasformazioni dedicate, senza distribuire conversioni nel frontend.
-- Prima della migrazione conservare una copia esatta del file originale in un backup distinto, senza sovrascrivere backup precedenti. Se il backup fallisce, non modificare l'archivio.
-- Eseguire la conversione in memoria, validare dati e riferimenti, quindi salvare il risultato con sostituzione atomica. Aggiornare lo stato utilizzato dal servizio solo dopo il salvataggio riuscito.
-- In caso di errore conservare originale e backup e mostrare un messaggio utile. Non sostituire mai un documento illeggibile con un profilo vuoto.
-- Con una versione futura, rifiutare l'apertura in scrittura e indicare che serve una versione piu recente dell'app. Non tentare un downgrade automatico.
-- Valutare la compatibilita sia in lettura sia in riscrittura: un client vecchio che ignora campi nuovi potrebbe cancellarli al salvataggio. Aggiungere un default non e sufficiente per dichiarare compatibile ogni cambiamento.
-- Esporre nei dettagli diagnostici la versione dell'app e quella dello schema. Non richiedere all'utente di scegliere manualmente una migrazione ordinaria.
+A note's `content_revision` protects against stale text editors. It is separate from the schema version and cloud document revision. Color, geometry and visibility do not increment the text revision.
 
-## Incremento previsto per le note
+## Rules for future changes
 
-Le note desktop e le frasi ricorrenti sono implementate nello schema 2; il formato persistente e la migrazione fanno parte dello stesso incremento.
+- Keep one backend constant for the current local format and document each distributed version.
+- Version each independent persistent store. A global version covers entities kept in the same file; split stores need their own versions.
+- Document references and compatibility between stores. Avoid partial writes that leave dangling note/reminder links.
+- Detect old, future and corrupt formats before current-model deserialization.
+- Migrate through explicit steps rather than scattering conversions through the frontend.
+- Preserve an exact, distinct backup before migration. If creating the backup fails, leave the original untouched.
+- Convert and validate in memory, save with atomic replacement, then commit the service's in-memory state only after success.
+- Preserve unreadable files and show useful errors instead of replacing them with an empty profile.
+- Reject writing future versions and explain that a newer app is required.
+- Consider compatibility on both reads and rewrites; ignoring unknown fields can lose data.
+- Show schema versions diagnostically without requiring users to select routine migrations.
 
-Le note usano lo stesso archivio dei timer. La creazione o cancellazione di un promemoria collegato e una sola modifica del modello, validata e salvata prima di diventare visibile all'interfaccia. I riferimenti mancanti o condivisi tra piu note sono rifiutati. Svuotare lo storico rimuove i riferimenti alle scadenze eliminate.
+## Notes and reminders
 
-Ogni nota salva identificatore UUID, titolo, testo, colore, visibilita, primo piano, geometria, revisione del contenuto e riferimento opzionale al timer. Le coordinate x/y sono pixel fisici globali; larghezza e altezza sono pixel logici. Il ripristino limita la posizione all'area di lavoro di un monitor disponibile; su Wayland puo decidere il compositor. Nascondere la nota conserva testo e promemoria. L'archivio accetta fino a 100 note (80 caratteri per il titolo, 10.000 per il testo), 50 frasi di 180 caratteri e un file totale di massimo 8 MiB.
+Notes share the timer store. Adding/removing a linked reminder is one validated model change saved before it becomes visible. Missing reminders and reminders shared by multiple notes are rejected. History cleanup removes references to timers that no longer exist.
 
-L'identita dell'app rimane neutra: la gallina e un valore della preferenza mascotte, non il nome o l'identificatore del formato delle note.
+Each note stores UUID, title, body, color, visibility, pinning, geometry, content revision and an optional reminder ID. Coordinates are global physical pixels; width/height are logical pixels. Restoration clamps positions to an available monitor's work area; Wayland may let the compositor decide placement.
 
-## Verifiche necessarie all'implementazione
+Hiding preserves content and reminders. Limits: 100 local notes, 80-character titles, 10,000-character bodies, 50 phrases of 180 characters, and an 8 MiB state file. The app identity stays neutral: Chicken is a mascot preference, not a data format identifier.
 
-Conservare fixture dei formati distribuiti e verificare migrazione, riapertura del file migrato, conservazione di testo e identificatori, impostazioni opzionali, riferimenti tra note e timer, file corrotti, versioni future, backup e fallimenti di scrittura. Ripetere il caricamento dopo una migrazione riuscita non deve duplicare note o promemoria. Verificare che un errore lasci intatto il file originale.
+## Schema history
 
-Backup, migrazione v1 -> v2, protezione dei formati futuri e conflitti di modifica sono implementati e coperti dai test Rust e HTTP. Le migrazioni successive richiederanno nuovi passi espliciti e fixture del formato precedente.
+| Schema | Change and migration behavior |
+| --- | --- |
+| 1 | Original timer/preferences prototype. |
+| 2 | Desktop notes and recurring phrases. Migrates old state, preserving timers/preferences and initializing missing fields. |
+| 3 | Adds `frost_gryphon` to the mascot enum. v2 → v3 preserves selection, notes, timers and personal phrases. |
+| 4 | Adds `ember_wyvern`. v3 → v4 preserves existing data. Expanding an enum requires a version change so old clients cannot rewrite unsupported values. |
+| 5 | Adds `speech_min_minutes` and `speech_max_minutes`, integers from 1 to 1440 with minimum ≤ maximum. Defaults are 5 and 10. v4 → v5 preserves data with exact backup and atomic replacement. |
+| 6 | Adds `elf`. Migration preserves the selected mascot. The v1 elf prototype has a dedicated path preserving its timers/preferences and exact original backup. |
+| 7 | Adds `timers[].kind`: `timer` or `alarm`. Existing records default to `timer`; v6 → v7 preserves deadlines and note links. |
+| 8 | Adds `settings.notes_storage` (default `local`) and `note_sync`: bound account/project, cloud base revisions, desired members, conflicts and revoked access. v7 → v8 retains notes without uploading and initializes an empty cache. |
 
-## Schema 3: catalogo delle mascotte
+Pending cloud operations are derived from local notes versus their saved cloud bases, so they survive restart. Firebase configuration and cloud note documents each use independent schema 1. See [Cloud notes](cloud-notes.md).
 
-Lo schema 3 ammette `settings.mascot = frost_gryphon` oltre a `chicken`. Il passo esplicito v2 -> v3 conserva note, timer, frasi personali e preferenze; non cambia la mascotte selezionata. Il passaggio v1 -> v2 resta separato e viene seguito dal nuovo passo. Le versioni precedenti non riconoscono il nuovo valore e non devono riscrivere il file. Il backup esatto permette il recupero del formato precedente.
+## Validation
 
-## Schema 4: Ember wyvern
-
-Aggiunge il valore `ember_wyvern` al catalogo. Il passo v3 -> v4 conserva selezione, note, timer e frasi. Anche questo ampliamento del dominio enum richiede una versione esplicita per impedire riscritture da applicazioni precedenti.
-
-## Schema 5: pause delle frasi
-
-Aggiunge `settings.speech_min_minutes` e `settings.speech_max_minutes`: minuti interi da 1 a 1440, minimo non superiore al massimo. I default Serde sono 5 e 10. Il passo esplicito v4 -> v5 conserva note, timer, mascotte e frasi personali, con backup esatto e salvataggio atomico. Le pause vengono scelte casualmente dopo ogni vignetta e non rallentano beccate e svolazzi. Valori uguali definiscono una pausa fissa.
-
-## Schema 6: elfo dei boschi
-
-Il catalogo include `elf`. La migrazione da v5 conserva la mascotte selezionata. I profili v1 del prototipo con l’elfo passano direttamente alla v6, mantenendo timer, preferenze e una copia esatta del file originale.
+Keep fixtures for released formats. Cover migration, reopening without duplicate work, text/ID preservation, optional settings, reminder references, exact backups, corrupt/future files and failed writes. Verify that errors leave the original unchanged. Rust and HTTP tests cover these behaviors; each future format needs its own explicit migration and previous-format fixture.

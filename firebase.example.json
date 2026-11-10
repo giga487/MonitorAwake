@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "project_id": "YOUR_FIREBASE_PROJECT_ID",
+  "api_key": "YOUR_FIREBASE_API_KEY",
+  "auth_domain": "YOUR_FIREBASE_AUTH_DOMAIN",
+  "app_id": "YOUR_FIREBASE_APP_ID",
+  "storage_bucket": "YOUR_FIREBASE_STORAGE_BUCKET",
+  "messaging_sender_id": "YOUR_FIREBASE_MESSAGING_SENDER_ID"
+}

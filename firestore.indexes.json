@@ -1,0 +1,7 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "notes", "fieldPath": "body", "indexes": [] },
+    { "collectionGroup": "notes", "fieldPath": "title", "indexes": [] }
+  ]
+}

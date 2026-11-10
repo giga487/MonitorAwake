@@ -1,8 +1,10 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { MascotKind } from './mascot';
+import type { FirebaseLocalConfig } from './firebase';
 
 export type AwakeMode = 'off' | 'system' | 'display';
 export interface Timer {
+  kind: 'timer' | 'alarm';
   id: string;
   name: string;
   deadline_ms: number;
@@ -11,6 +13,7 @@ export interface Timer {
   keep_awake: boolean;
 }
 export interface Settings {
+  notes_storage: 'local' | 'firebase';
   animations: boolean;
   notifications: boolean;
   mascot: MascotKind;
@@ -38,6 +41,8 @@ export interface Note {
   reminder_id: string | null;
 }
 export interface Snapshot {
+  note_sync: { scope: CloudScope | null; entries: CloudEntry[] };
+  note_sync_status: { message: string; pending: number };
   schema_version: number;
   app_version: string;
   notes: Note[];
@@ -53,6 +58,17 @@ export interface Snapshot {
   now_ms: number;
 }
 export type Action =
+  | { type: 'set_notes_storage'; storage: 'local' | 'firebase' }
+  | { type: 'bind_notes_cloud'; scope: CloudScope }
+  | { type: 'disconnect_notes_cloud' }
+  | {
+      type: 'apply_cloud_note' | 'acknowledge_cloud_note';
+      scope: CloudScope;
+      document: CloudNote;
+    }
+  | { type: 'resolve_note_conflict'; id: string; keep_local: boolean }
+  | { type: 'set_note_members'; id: string; member_uids: string[] }
+  | { type: 'cloud_note_access_removed'; scope: CloudScope; id: string }
   | { type: 'create_note' }
   | {
       type: 'update_note';
@@ -73,6 +89,12 @@ export type Action =
   | { type: 'delete_note'; id: string }
   | { type: 'set_note_reminder'; id: string; seconds: number }
   | { type: 'add_timer'; name: string; seconds: number; keep_awake: boolean }
+  | {
+      type: 'add_alarm';
+      name: string;
+      deadline_ms: number;
+      keep_awake: boolean;
+    }
   | { type: 'cancel_timer' | 'acknowledge_timer'; id: string }
   | { type: 'extend_timer'; id: string; seconds: number }
   | { type: 'set_awake'; mode: AwakeMode }
@@ -94,7 +116,7 @@ export function initializeSession(): boolean {
   return Boolean(token);
 }
 
-async function request<T>(path: string, action?: Action): Promise<T> {
+async function request<T>(path: string, action?: unknown): Promise<T> {
   const response = await fetch(path, {
     method: action ? 'POST' : 'GET',
     headers: {
@@ -116,6 +138,53 @@ async function request<T>(path: string, action?: Action): Promise<T> {
 
 export const getState = () =>
   desktop ? invoke<Snapshot>('get_state') : request<Snapshot>('/api/state');
+
+export interface FirebaseSetup {
+  config: FirebaseLocalConfig | null;
+  auth_emulator_url: string | null;
+  firestore_emulator_url: string | null;
+}
+
+export interface CloudScope {
+  project_id: string;
+  uid: string;
+}
+export interface CloudNote {
+  schema_version: 1;
+  id: string;
+  title: string;
+  body: string;
+  color: NoteColor;
+  owner_uid: string;
+  member_uids: string[];
+  revision: number;
+  deleted: boolean;
+}
+export interface CloudEntry {
+  id: string;
+  base: CloudNote;
+  member_uids: string[];
+  conflict: CloudNote | null;
+  access_removed: boolean;
+}
+export interface CloudOperation {
+  document: CloudNote;
+  expected_revision: number | null;
+}
+export const getFirebaseSetup = () =>
+  desktop
+    ? invoke<FirebaseSetup>('firebase_setup')
+    : request<FirebaseSetup>('/api/firebase/config');
+export const saveFirebaseConfig = (config: FirebaseLocalConfig) =>
+  desktop
+    ? invoke<void>('set_firebase_config', { config })
+    : request<{ saved: boolean }>('/api/firebase/config', config);
+
+export const completeGoogleLogin = (challenge: string, idToken: string) =>
+  request<{ received: boolean }>('/api/firebase/google/complete', {
+    challenge,
+    id_token: idToken,
+  });
 export const dispatch = (action: Action) =>
   desktop
     ? invoke<{ message: string; state: Snapshot }>('dispatch', { action })
@@ -126,6 +195,16 @@ export function remaining(timer: Timer, now: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return `${hours ? `${hours}:` : ''}${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+export function alarmTime(timer: Timer): string {
+  return new Date(timer.deadline_ms).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export const modes: { value: AwakeMode; label: string; description: string }[] =

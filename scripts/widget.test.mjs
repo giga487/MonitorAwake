@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { alarmDeadline, localAlarmValue } from '../src/lib/alarm.ts';
 import { createSaveQueue } from '../src/lib/save-queue.ts';
 import { menuPosition, notificationSeconds } from '../src/lib/widget.ts';
 import {
@@ -11,6 +12,40 @@ import {
   selectRecurringPhrase,
   mascots,
 } from '../src/lib/mascot.ts';
+
+test('alarm inputs preserve local time and reject past, invalid and excessive dates', () => {
+  const now = new Date(2026, 10, 10, 10, 0).getTime();
+  const target = new Date(2026, 10, 10, 14, 30).getTime();
+  assert.equal(localAlarmValue(target), '2026-11-10T14:30');
+  assert.equal(alarmDeadline('2026-11-10T14:30', now), target);
+  for (const value of [
+    '',
+    '2026-02-30T14:30',
+    '2026-11-10T10:00',
+    '2026-11-10T09:59',
+    '2026-11-10T25:00',
+    '2027-11-10T14:30',
+    '2026-11-10T14:30Z',
+  ]) {
+    assert.equal(alarmDeadline(value, now), null, value);
+  }
+});
+
+test('alarm input rejects a nonexistent local time at the spring DST transition', () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'Europe/Rome';
+  try {
+    const now = new Date(2027, 2, 27, 12).getTime();
+    assert.equal(alarmDeadline('2027-03-28T02:30', now), null);
+    assert.equal(
+      alarmDeadline('2027-03-28T03:30', now),
+      new Date(2027, 2, 28, 3, 30).getTime(),
+    );
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+});
 
 test('popup stays on screen without changing the mascot anchor', () => {
   const workArea = {

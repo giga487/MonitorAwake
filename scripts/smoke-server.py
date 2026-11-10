@@ -85,13 +85,30 @@ def main():
     (profile / 'state.json').write_bytes(legacy)
     process, base, token = start(binary, profile)
     try:
-        assert request(base, token)[1]['schema_version'] == 6
+        migrated = request(base, token)[1]
+        assert migrated['schema_version'] == 8 and migrated['settings']['notes_storage'] == 'local'
+        assert migrated['note_sync']['scope'] is None
         backups = list(profile.glob('state.json.backup-v1-*.json'))
         assert len(backups) == 1 and backups[0].read_bytes() == legacy
         assert request(base, '', '/')[0] == 200
         code, elf_sprite = request(base, '', '/elf.png')
         assert code == 200 and elf_sprite.startswith(b'\x89PNG\r\n\x1a\n')
         assert request(base, '')[0] == 401
+        assert request(base, '', '/api/firebase/config')[0] == 401
+        code, firebase_setup = request(base, token, '/api/firebase/config')
+        assert code == 200 and firebase_setup['config'] is None
+        firebase_config = {'schema_version': 1, 'project_id': 'demo-monitorawake', 'api_key': 'test-api-key', 'auth_domain': 'demo-monitorawake.firebaseapp.com', 'app_id': 'test-app'}
+        assert request(base, '', '/api/firebase/config', firebase_config)[0] == 401
+        assert request(base, token, '/api/firebase/config', firebase_config, extra={'Origin': 'https://untrusted.example'})[0] == 403
+        assert request(base, token, '/api/firebase/config', firebase_config)[0] == 200
+        assert request(base, token, '/api/firebase/config')[1]['config']['project_id'] == 'demo-monitorawake'
+        invalid_config = {**firebase_config, 'schema_version': 99}
+        assert request(base, token, '/api/firebase/config', invalid_config)[0] == 400
+        assert request(base, token, '/api/firebase/config')[1]['config']['schema_version'] == 1
+        completion = {'challenge': 'not-a-pending-request', 'id_token': 'test-token'}
+        assert request(base, '', '/api/firebase/google/complete', completion)[0] == 401
+        assert request(base, token, '/api/firebase/google/complete', completion, extra={'Origin': 'https://untrusted.example'})[0] == 403
+        assert request(base, token, '/api/firebase/google/complete', completion)[0] == 400
         assert request(base, token, extra={'Host': 'untrusted.example'})[0] == 403
         assert request(base, token, extra={'Origin': 'https://untrusted.example'})[0] == 403
         invalid = {'type': 'add_timer', 'name': 'Invalid', 'seconds': 0, 'keep_awake': False}
@@ -103,6 +120,16 @@ def main():
         timer_id = expired['timers'][0]['id']
         ack = {'type': 'acknowledge_timer', 'id': timer_id}
         assert request(base, token, '/api/action', ack)[0] == 200
+        _, state = request(base, token)
+        for deadline in [0, state['now_ms'] - 1, state['now_ms'] + 101 * 86400000]:
+            invalid_alarm = {'type': 'add_alarm', 'name': 'Invalid alarm', 'deadline_ms': deadline, 'keep_awake': False}
+            assert request(base, token, '/api/action', invalid_alarm)[0] == 400
+        alarm_deadline = state['now_ms'] + 3600123
+        code, result = request(base, token, '/api/action', {'type': 'add_alarm', 'name': 'Saved alarm', 'deadline_ms': alarm_deadline, 'keep_awake': False})
+        assert code == 200
+        alarm = next(t for t in result['state']['timers'] if t['name'] == 'Saved alarm')
+        assert alarm['kind'] == 'alarm' and alarm['deadline_ms'] == alarm_deadline
+        alarm_id = alarm['id']
         code, created = request(base, token, '/api/action', {'type': 'create_note'})
         assert code == 200
         note_id = created['state']['notes'][0]['id']
@@ -141,6 +168,9 @@ def main():
         code, restored = request(base, next_token)
         assert code == 200 and restored['timers'][0]['id'] == timer_id
         assert restored['timers'][0]['status'] == 'acknowledged'
+        alarm = next(t for t in restored['timers'] if t['id'] == alarm_id)
+        assert alarm['kind'] == 'alarm' and alarm['deadline_ms'] == alarm_deadline
+        assert request(base, next_token, '/api/action', {'type': 'cancel_timer', 'id': alarm_id})[0] == 200
         assert restored['manual_mode'] == 'off'
         assert restored['settings']['mascot'] == 'elf'
         assert restored['notes'][0]['id'] == note_id and restored['notes'][0]['body'] == body

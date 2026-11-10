@@ -2,7 +2,7 @@ use crate::notes::{Note, NoteBounds, NoteColor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 8;
 
 pub const MAX_SECONDS: u64 = 100 * 24 * 60 * 60;
 pub const MAX_TIMERS: usize = 100;
@@ -33,11 +33,23 @@ pub struct Timer {
     pub duration_seconds: u64,
     pub status: TimerStatus,
     pub keep_awake: bool,
+    #[serde(default)]
+    pub kind: TimerKind,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TimerKind {
+    #[default]
+    Timer,
+    Alarm,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default)]
+    pub notes_storage: crate::note_sync::NotesStorage,
     pub animations: bool,
     pub notifications: bool,
     #[serde(default)]
@@ -108,6 +120,7 @@ pub enum MascotKind {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            notes_storage: crate::note_sync::NotesStorage::Local,
             animations: true,
             notifications: true,
             mascot: MascotKind::Chicken,
@@ -122,6 +135,8 @@ impl Default for Settings {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Model {
+    #[serde(default)]
+    pub note_sync: crate::note_sync::NoteSync,
     pub schema_version: u32,
     pub timers: Vec<Timer>,
     pub settings: Settings,
@@ -131,6 +146,7 @@ pub struct Model {
 impl Default for Model {
     fn default() -> Self {
         Self {
+            note_sync: crate::note_sync::NoteSync::default(),
             schema_version: SCHEMA_VERSION,
             timers: vec![],
             settings: Settings::default(),
@@ -142,6 +158,33 @@ impl Default for Model {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    SetNotesStorage {
+        storage: crate::note_sync::NotesStorage,
+    },
+    BindNotesCloud {
+        scope: crate::note_sync::CloudScope,
+    },
+    DisconnectNotesCloud,
+    AcknowledgeCloudNote {
+        scope: crate::note_sync::CloudScope,
+        document: crate::note_sync::CloudNote,
+    },
+    ApplyCloudNote {
+        scope: crate::note_sync::CloudScope,
+        document: crate::note_sync::CloudNote,
+    },
+    ResolveNoteConflict {
+        id: Uuid,
+        keep_local: bool,
+    },
+    SetNoteMembers {
+        id: Uuid,
+        member_uids: Vec<String>,
+    },
+    CloudNoteAccessRemoved {
+        scope: crate::note_sync::CloudScope,
+        id: Uuid,
+    },
     CreateNote,
     UpdateNote {
         id: Uuid,
@@ -177,6 +220,11 @@ pub enum Action {
         seconds: u64,
         keep_awake: bool,
     },
+    AddAlarm {
+        name: String,
+        deadline_ms: u64,
+        keep_awake: bool,
+    },
     CancelTimer {
         id: Uuid,
     },
@@ -205,6 +253,7 @@ impl Model {
             return Err("Unsupported data file version. The file has been preserved.".into());
         }
         self.settings.validate()?;
+        self.validate_note_sync()?;
         if self.notes.len() > crate::notes::MAX_NOTES {
             return Err("The data file contains too many notes.".into());
         }
@@ -262,6 +311,7 @@ impl Model {
             duration_seconds: seconds,
             status: TimerStatus::Running,
             keep_awake,
+            kind: TimerKind::Timer,
         });
         Ok(format!("Timer «{name}» started."))
     }
@@ -293,6 +343,14 @@ impl Model {
 
     pub fn apply(&mut self, action: &Action, now: u64) -> Result<String, String> {
         match action {
+            Action::SetNotesStorage { .. }
+            | Action::BindNotesCloud { .. }
+            | Action::DisconnectNotesCloud
+            | Action::AcknowledgeCloudNote { .. }
+            | Action::ApplyCloudNote { .. }
+            | Action::ResolveNoteConflict { .. }
+            | Action::SetNoteMembers { .. }
+            | Action::CloudNoteAccessRemoved { .. } => self.apply_note_sync(action),
             Action::CreateNote
             | Action::UpdateNote { .. }
             | Action::SetNoteAppearance { .. }
@@ -306,6 +364,26 @@ impl Model {
                 seconds,
                 keep_awake,
             } => self.add(name, *seconds, *keep_awake, now),
+            Action::AddAlarm {
+                name,
+                deadline_ms,
+                keep_awake,
+            } => {
+                let delay = deadline_ms
+                    .checked_sub(now)
+                    .filter(|delay| *delay > 0)
+                    .ok_or("Choose a future date and time for the alarm.")?;
+                let seconds = delay.div_ceil(1000);
+                validate_duration(seconds)?;
+                self.add(name, seconds, *keep_awake, now)?;
+                let alarm = self
+                    .timers
+                    .last_mut()
+                    .expect("add inserts a timer on success");
+                alarm.kind = TimerKind::Alarm;
+                alarm.deadline_ms = *deadline_ms;
+                Ok(format!("Alarm «{}» scheduled.", alarm.name))
+            }
             Action::CancelTimer { id } => {
                 let t = self.timer_mut(*id)?;
                 if t.status != TimerStatus::Running || t.deadline_ms <= now {
@@ -543,6 +621,76 @@ fn parse_duration(input: &str) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn alarms_keep_exact_deadlines_expire_once_after_restart_and_release_awake() {
+        let mut model = Model::default();
+        model
+            .apply(
+                &Action::AddAlarm {
+                    name: "Meeting".into(),
+                    deadline_ms: 60_123,
+                    keep_awake: true,
+                },
+                1000,
+            )
+            .unwrap();
+        assert_eq!(model.timers[0].kind, TimerKind::Alarm);
+        assert_eq!(model.timers[0].duration_seconds, 60);
+        assert_eq!(
+            model.required_mode(AwakeMode::Off, 60_122),
+            AwakeMode::System
+        );
+        let mut restored: Model =
+            serde_json::from_str(&serde_json::to_string(&model).unwrap()).unwrap();
+        assert_eq!(restored.timers[0].deadline_ms, 60_123);
+        assert!(restored.expire(60_122).is_empty());
+        assert_eq!(restored.expire(80_000).len(), 1);
+        assert!(restored.expire(90_000).is_empty());
+        assert_eq!(
+            restored.required_mode(AwakeMode::Off, 80_000),
+            AwakeMode::Off
+        );
+        let id = restored.timers[0].id;
+        restored
+            .apply(&Action::AcknowledgeTimer { id }, 90_000)
+            .unwrap();
+        assert_eq!(restored.timers[0].status, TimerStatus::Acknowledged);
+    }
+
+    #[test]
+    fn alarms_reject_past_and_excessive_deadlines_without_creating_entries() {
+        let mut model = Model::default();
+        for deadline_ms in [0, 999, 1000, 1000 + MAX_SECONDS * 1000 + 1, u64::MAX] {
+            assert!(
+                model
+                    .apply(
+                        &Action::AddAlarm {
+                            name: "Alarm".into(),
+                            deadline_ms,
+                            keep_awake: false
+                        },
+                        1000
+                    )
+                    .is_err()
+            );
+            assert!(model.timers.is_empty());
+        }
+        model
+            .apply(
+                &Action::AddAlarm {
+                    name: "Alarm".into(),
+                    deadline_ms: 1000 + MAX_SECONDS * 1000,
+                    keep_awake: false,
+                },
+                1000,
+            )
+            .unwrap();
+        let id = model.timers[0].id;
+        model.apply(&Action::CancelTimer { id }, 2000).unwrap();
+        assert_eq!(model.timers[0].status, TimerStatus::Cancelled);
+        assert!(model.expire(u64::MAX).is_empty());
+    }
 
     #[test]
     fn expiry_survives_reload_and_is_emitted_once() {

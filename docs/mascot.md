@@ -1,38 +1,38 @@
-# Gallina con viso a schermo
+# Screen-faced chicken and mascot behavior
 
-Asset: `public/mascot.png`, PNG trasparente generato con il tool integrato imagegen il 6 novembre 2026. Gallina in pixel art con cresta rossa, ali, zampe e viso su un display verde fosforo, scelta dall'utente al posto del terminale robot. L'icona neutra dell'app usa invece `public/app-icon.svg`, con rigenerazione tramite `npm run tauri -- icon public/app-icon.svg --output src-tauri/icons`.
+`public/mascot.png` is the original transparent PNG generated with the integrated ImageGen tool on November 6, 2026. The user selected a pixel-art chicken with a red comb, wings, feet and phosphor-green screen face in place of the robot-terminal concept. The neutral application icon is `public/app-icon.svg`; regenerate platform icons with `npm run tauri -- icon public/app-icon.svg --output src-tauri/icons`.
 
-L'immagine originale rimane disponibile per le illustrazioni statiche. Il widget usa ora `public/chicken-actions.png`, un atlante PNG RGBA trasparente 1254 × 1254, generato con ImageGen il 7 novembre 2026 usando la gallina originale come riferimento. La griglia 2 × 2 contiene quattro pose da 627 × 627: attesa in alto a sinistra, beccata in alto a destra, svolazzo in basso a sinistra, cova in basso a destra. Non contiene uova: vengono disegnate separatamente per rappresentare i timer reali.
+The original remains available for static illustrations. The widget uses `public/chicken-actions.png`, a transparent 1254 × 1254 RGBA atlas generated on November 7 using the original as reference. Its 2 × 2 grid has four 627 × 627 cells: waiting (top left), pecking (top right), fluttering (bottom left), and brooding (bottom right). Eggs are drawn separately from actual timer state.
 
-## Stati e notifiche
+## States and notifications
 
-- **Waiting:** guarda in alto e si inclina leggermente.
-- **Random action:** ogni 10–25 secondi senza notifiche, becca, tenta di svolazzare mentre le frasi hanno un intervallo indipendente. Beccata e svolazzo durano meno di due secondi; la vignetta sei secondi.
-- **Waiting for notification:** cova con una respirazione lenta e un uovo per ogni timer attivo. Se le frasi sono abilitate, mostra una vignetta per sei secondi dopo ogni pausa casuale di 5-10 minuti, configurabile in Preferences > Recurring phrases, restando seduta sulle uova. Non becca e non svolazza durante la cova.
-- **Notification ready:** segnala la scadenza; le uova pronte sono rosse e incrinate fino alla conferma dell'avviso.
+- **Waiting:** looks upward with a slight tilt.
+- **Random action:** pecks or attempts to flutter every 10–25 seconds without pending timers. Each gesture lasts less than two seconds. Speech has its own independent interval.
+- **Waiting for notification:** broods with gentle breathing and an egg per active timer. Enabled speech displays a six-second bubble after each configurable pause (default 5–10 minutes), while the mascot stays seated. No pecking or fluttering during brooding.
+- **Notification ready:** signals expiry; ready eggs remain red and cracked until acknowledged.
 
-Ogni uovo ha il proprio tempo: verde quando rimane più del 50%, giallo tra il 50% e il 20%, rosso nell'ultimo 20%. Le tacche distinguono le fasi anche senza colore; numero, tooltip e testo accessibile identificano le notifiche. Le uova confermate o annullate scompaiono. Un nido affollato si può scorrere con il mouse, senza limitare il numero di uova rappresentate.
+Each egg follows its own deadline: green above 50% remaining, yellow between 50% and 20%, red in the final 20%. Marks also distinguish phases without color; numbers, tooltips and accessible text identify notifications. Acknowledged/cancelled eggs disappear. A crowded nest can scroll without limiting represented eggs.
 
-`src/lib/mascot.ts` calcola gli stati visivi dai timer Rust. `src/lib/Mascot.svelte` gestisce pose e movimento; non scade timer e non invia notifiche. Beccata e svolazzo si interrompono quando arrivano timer attivi; le frasi si fermano quando una notifica scade e quando la pagina non è visibile. La preferenza **Gentle animations** e `prefers-reduced-motion` fermano i movimenti senza nascondere uova e stato.
+`src/lib/mascot.ts` derives visual states from Rust timers. `src/lib/Mascot.svelte` owns poses/movement, not timer expiry or notification delivery. Active timers interrupt pecking/fluttering. Ready notifications and a hidden page stop speech. **Gentle animations** and `prefers-reduced-motion` stop movement without hiding eggs or state.
 
-La scelta della mascotte è salvata in `settings.mascot`, attualmente `chicken`. L'enum Rust `MascotKind` con default Serde conserva la compatibilità con i file precedenti. Il catalogo frontend dichiara l'atlante e la descrizione; prima di aggiungere una mascotte vanno realizzate tutte e tre le azioni richieste.
+Selection is stored in `settings.mascot`. Rust's `MascotKind` enum has a Serde default for supported older files. The frontend catalog declares assets and rendering; each new animated mascot should implement waiting, random action and waiting for notification. The catalog includes Chicken, Frost gryphon, Ember wyvern and Woodland elf.
 
-Il prompt dell'atlante richiede la stessa gallina robot in pixel art, quattro pose allineate in celle uguali, sfondo alpha trasparente, nessuna scritta, nessun nido e nessun uovo incorporato. L'asset originale non è stato sovrascritto.
+The atlas prompt requires consistent identity and equal aligned cells, transparent alpha, no text and no embedded eggs or nest. The original asset was preserved.
 
-## Verifica delle frasi durante la cova
+## Speech verification
 
-Verifica della correzione delle frasi durante la cova (Windows, 7 novembre 2026): 13 test frontend passati, Svelte senza errori o warning, installer rigenerato. Su un profilo isolato con timer attivo sono comparse automaticamente due frasi diverse; posa di cova e uovo sono rimasti visibili. La vignetta non ha preso il focus ed e scomparsa dopo ogni frase. Desktop Linux non verificato.
+Windows, November 7, 2026: the brooding-speech fix passed 13 frontend tests and Svelte checks. In an isolated profile with an active timer, two different phrases appeared automatically while brooding and the egg stayed visible. Bubbles did not take focus and disappeared after each phrase. Desktop Linux was not verified.
 
-## Prompt utilizzato
+The configurable-pause increment passed 24 Rust tests, 14 frontend tests, Clippy and HTTP checks. A native Windows one-minute fixed pause delayed speech without interrupting brooding or the egg. Default 5–10 minute pauses and custom bounds were tested deterministically without real waits. NSIS setup was regenerated. No preferences browser was opened; desktop Linux was not verified.
 
-Aggiornamento pause configurabili: 24 test Rust e 14 test frontend passati, Clippy e prova HTTP passati. Nell'app Windows una pausa fissa configurata di un minuto ha ritardato la frase senza interrompere cova e uovo; la vignetta non ha preso il focus. L'intervallo predefinito 5-10 minuti e i limiti personalizzati sono verificati senza attese reali nei test della funzione di pianificazione. Installer NSIS rigenerato. La pagina delle preferenze non e stata aperta in un browser; desktop Linux non verificato.
+## Original sprite prompt
 
 Use case: stylized-concept. Asset type: one production desktop companion mascot sprite on transparent background. Primary request: a nerdy CHICKEN with a SCREEN FACE. Design a clearly recognizable small round hen robot: ivory/off-white rounded chicken body, red comb on top of the head, tiny red wattles just below the face panel, two feather-shaped little wings, a small fan of tail feathers, two short yellow-orange chicken legs with three-toed feet. The FACE ITSELF is a dark rounded rectangular CRT screen inset into the chicken's head, showing two expressive bright phosphor-green pixel eyes and a tiny pixel beak/mouth. The screen replaces the whole organic face; do not put a human face there. The character should read first as a chicken and second as a retro computer companion, not as a monitor with generic arms. Charming, alert, mildly mischievous nerd personality. Crisp 16-bit pixel art with coherent chunky pixel clusters and a dark outline; restrained retro palette, gentle pixel shading, no smooth vector illustration, no glossy 3D render. Front-facing with slight three-quarter body orientation, symmetrical readable screen face. Entire single character visible from comb to toes, centered square composition, about 85 percent of canvas, clear padding. Must be legible as a desktop pet at 120px high. Truly transparent alpha background. No scene, no ground plane, no cast shadow, no checkerboard, no words, no logo, no extra characters or props.
 
-## Elfo dei boschi
+## Woodland elf
 
-L’elfo è uno sprite trasparente in `public/elf.png`, generato con ImageGen. Si sceglie in **Preferences → Your mascot → Woodland elf**. Nel widget l’elfo si inclina come una sentinella e fa un saltello, con una pausa tra i due gesti.
+`public/elf.png` is a transparent sprite generated with ImageGen. Select **Preferences > Your mascot > Woodland elf**. The widget tilts the elf like a sentry and performs a small hop, with a pause between gestures.
 
-### Prompt della variante bionda
+### Blond variant prompt
 
-Modifica solo il colore dei capelli di questo elfo in pixel art: biondo miele naturale con ciocche dorate, ombre ocra e riflessi color paglia. Conserva taglio e volumi dei capelli, posa, viso, occhi verdi, orecchie lunghe, tunica verde, spada, scudo a foglia, proporzioni, inquadratura dell'intera figura e stile pixel art dell'originale. Mantieni lo sfondo trasparente.
+Change only this pixel-art elf's hair color to natural honey blond, with golden strands, ochre shading and straw-colored highlights. Preserve the hairstyle and volume, pose, face, green eyes, long ears, green tunic, sword, leaf shield, proportions, full-figure framing and original pixel-art style. Keep the background transparent.
